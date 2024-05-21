@@ -17,5 +17,6 @@
 # Ignore some folders used for metadata, debugging, dev work
 .cert/
 .config/
+.data/
 .tools/
 
