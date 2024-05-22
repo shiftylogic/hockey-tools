@@ -23,25 +23,65 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
-	"shiftylogic.dev/hockey-tools/internal/data/local"
+	"shiftylogic.dev/hockey-tools/internal/services"
+	"shiftylogic.dev/hockey-tools/internal/web"
 )
 
 func main() {
-	store, err := local.Open("./.data/hockey.db")
-	if err != nil {
-		log.Fatalf("failed to open data store : %v\n", err)
-	}
-	defer store.Close()
+	ctx, shutdown := context.WithCancel(context.Background())
 
-	// Just grabbing the first "page" of results
-	facilities, _, err := store.Facilities().List(0)
-	if err != nil {
-		log.Fatalf("failed to fetch facilities: %v\n", err)
-	}
+	go func() {
+		defer shutdown()
 
-	for _, f := range facilities {
-		log.Printf("Facilities (%d) - %s\n", f.ID(), f.Name())
-	}
+		svcs := loadServices(ctx)
+		config := loadConfig()
+
+		options := append(
+			selectMiddleware(config.Base),
+			services.WithServices(svcs))
+
+		// This needs to be the last thing added (as middleware) before we start
+		// adding other handlers
+		if config.Base.Profiler {
+			options = append(options, web.WithProfiler())
+		}
+
+		options = append(options, getRoutes(config.Services)...)
+		options = append(options, services.WithStaticRoutes(config.Base.Statics)...)
+
+		router := web.NewRouter(options...)
+
+		services.Start(config.Base, router)
+	}()
+
+	// Wait for the services to be stopped
+	<-ctx.Done()
+
+	// Allow a bit more time for the background goroutines to shutdown.
+	// If they are paying attention to the Context passed to them, this
+	// should be pretty quick.
+	time.Sleep(time.Second)
+	log.Print("Bye for realz!")
 }
+
+// func main() {
+// 	store, err := local.Open("./.data/hockey.db")
+// 	if err != nil {
+// 		log.Fatalf("failed to open data store : %v\n", err)
+// 	}
+// 	defer store.Close()
+//
+// 	// Just grabbing the first "page" of results
+// 	facilities, _, err := store.Facilities().List(0)
+// 	if err != nil {
+// 		log.Fatalf("failed to fetch facilities: %v\n", err)
+// 	}
+//
+// 	for _, f := range facilities {
+// 		log.Printf("Facilities (%d) - %s\n", f.ID(), f.Name())
+// 	}
+// }

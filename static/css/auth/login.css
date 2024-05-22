@@ -1,0 +1,38 @@
+.h-frame {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+}
+
+.v-frame {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+}
+
+.qrcode {
+    width: 150px;
+    height: 150px;
+}
+
+.no-qrcode {
+    background: repeating-linear-gradient(135deg,
+        var(--primary-inverse) 0,
+        var(--primary) 1px, var(--primary) .25em,
+        var(--primary-inverse) calc(.25em + 1px),
+        var(--primary-inverse) .75em
+    );
+
+    width: 150px;
+    height: 150px;
+}
+
+.no-qr-warning {
+    color: black;
+    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.5);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    border-radius: 0.5em;
+    margin: auto 1.25em;
+}

@@ -27,6 +27,7 @@ import (
 )
 
 var (
+	ErrorOpeningDatabase   = errors.New("failed to open database file")
 	ErrorUnknownFacilityID = errors.New("unknown facility id")
 	ErrorUnknownPlayerID   = errors.New("unknown player id")
 	ErrorUnknownStaffID    = errors.New("unknown staff id")

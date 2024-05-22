@@ -20,54 +20,46 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package local
+package main
 
 import (
-	"database/sql"
-	"fmt"
+	"context"
 
-	_ "github.com/mattn/go-sqlite3"
-
-	"shiftylogic.dev/hockey-tools/internal/data"
+	"shiftylogic.dev/hockey-tools/internal/services"
+	"shiftylogic.dev/hockey-tools/internal/services/auth"
+	"shiftylogic.dev/hockey-tools/internal/web"
 )
 
-type localStore struct {
-	db         *sql.DB
-	facilities *facilities
-	players    *players
-	staff      *staff
+func loadServices(ctx context.Context) services.Services {
+	kvs := services.NewMemoryStore(ctx)
+
+	return &services.ServicesContainer{
+		EphemeralStore: &services.SimpleDataStore{
+			KVS: kvs,
+		},
+		Authy: &fixedAuthorizer{
+			store: kvs,
+		},
+	}
 }
 
-func (store *localStore) Close()                      { store.db.Close() }
-func (store *localStore) Facilities() data.Facilities { return store.facilities }
-func (store *localStore) Players() data.Players       { return store.players }
-func (store *localStore) Staff() data.Staff           { return store.staff }
-
-func Open(dataFile string) (data.Store, error) {
-	db, err := sql.Open("sqlite3", dataFile)
-	if err != nil {
-		return nil, fmt.Errorf("[local.Open] failed to open database file - %w", err)
+func selectMiddleware(config services.Config) []web.RouterOptionFunc {
+	options := []web.RouterOptionFunc{
+		web.WithLogging(),
+		web.WithPanicRecovery(),
+		web.WithNoIFrame(),
+		web.WithNoCache(), // TODO: Remove this at some point later
 	}
 
-	facilities, err := newFacilities(db)
-	if err != nil {
-		return nil, err
+	if config.CORS.Enabled() {
+		options = append(options, web.WithCors(config.CORS.Options()))
 	}
 
-	players, err := newPlayers(db)
-	if err != nil {
-		return nil, err
-	}
+	return options
+}
 
-	staff, err := newStaff(db)
-	if err != nil {
-		return nil, err
+func getRoutes(config ServicesConfig) []web.RouterOptionFunc {
+	return []web.RouterOptionFunc{
+		auth.WithOAuth2(config.Auth),
 	}
-
-	return &localStore{
-		db,
-		facilities,
-		players,
-		staff,
-	}, nil
 }

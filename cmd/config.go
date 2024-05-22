@@ -20,54 +20,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package local
+package main
 
 import (
-	"database/sql"
-	"fmt"
-
-	_ "github.com/mattn/go-sqlite3"
-
-	"shiftylogic.dev/hockey-tools/internal/data"
+	"shiftylogic.dev/hockey-tools/internal/helpers"
+	"shiftylogic.dev/hockey-tools/internal/services"
+	"shiftylogic.dev/hockey-tools/internal/services/auth"
 )
 
-type localStore struct {
-	db         *sql.DB
-	facilities *facilities
-	players    *players
-	staff      *staff
+const (
+	kConfigFileEnvKey = "SL_CONFIG"
+)
+
+type ServicesConfig struct {
+	Auth auth.Config `json:"auth" yaml:"Auth"`
 }
 
-func (store *localStore) Close()                      { store.db.Close() }
-func (store *localStore) Facilities() data.Facilities { return store.facilities }
-func (store *localStore) Players() data.Players       { return store.players }
-func (store *localStore) Staff() data.Staff           { return store.staff }
+type AppConfig struct {
+	Base     services.Config `json:"root" yaml:"Root"`
+	Services ServicesConfig  `json:"services" yaml:"Services"`
+}
 
-func Open(dataFile string) (data.Store, error) {
-	db, err := sql.Open("sqlite3", dataFile)
-	if err != nil {
-		return nil, fmt.Errorf("[local.Open] failed to open database file - %w", err)
+func loadConfig() AppConfig {
+	config := AppConfig{
+		services.DefaultConfig(),
+		ServicesConfig{
+			Auth: auth.DefaultConfig(),
+		},
 	}
 
-	facilities, err := newFacilities(db)
-	if err != nil {
-		return nil, err
+	if configFile := helpers.ReadEnvWithDefault(kConfigFileEnvKey, ""); configFile != "" {
+		services.LoadConfig(configFile, &config)
 	}
 
-	players, err := newPlayers(db)
-	if err != nil {
-		return nil, err
-	}
-
-	staff, err := newStaff(db)
-	if err != nil {
-		return nil, err
-	}
-
-	return &localStore{
-		db,
-		facilities,
-		players,
-		staff,
-	}, nil
+	return config
 }
