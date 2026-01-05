@@ -185,7 +185,9 @@ local tag_definitions = {
     },
     whistle = {
         prompt = "Whistle",
-        fields = {}
+        fields = {
+            {name = "reason", prompt = "Reason (optional):", required = false},
+        }
     },
     faceoff = {
         prompt = "Faceoff",
@@ -442,7 +444,11 @@ local function show_tag_summary(tag_type, data)
         end
         return
     elseif tag_type == "whistle" then
-        msg = "Stoppage"
+        if data.reason and data.reason ~= "" then
+            msg = "Stoppage - " .. data.reason
+        else
+            msg = "Stoppage"
+        end
     elseif tag_type == "faceoff" then
         msg = msg .. player_name(data.player) .. (data.win == "y" and " WON" or " LOST")
     end
@@ -540,7 +546,12 @@ local formatters = {
         return line
     end,
 
-    whistle = function() return "whistle" end,
+    whistle = function(data)
+        if data.reason and data.reason ~= "" then
+            return "whistle|reason:" .. data.reason
+        end
+        return "whistle"
+    end,
 
     faceoff = function(data)
         return string.format("faceoff|player:%s|win:%s", data.player, data.win)

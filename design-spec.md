@@ -166,9 +166,13 @@ Example Lines:
   start|period:2|length:3:45|goalie:25|defense:4|forwards:10,11
 
 TAG: whistle
-Fields: (none)
+Fields: reason:{optional description}
+Notes:
+  - reason: Optional text describing the stoppage reason
 Example Lines:
-  whistle|19000.0
+  whistle|10.5
+  whistle|120.0|reason:offside
+  whistle|234.5|reason:icing
 
 TAG: faceoff
 Fields: player:{number}|win:{y|n}
@@ -298,7 +302,7 @@ Uses mp.osd_message for status updates:
   Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
   Save:      "SAVE: #30 C. Connachan"
   Start:     "4-line centered summary showing period, goalie, defensemen, and forwards"
-  Whistle:   "WHISTLE: Stoppage"
+  Whistle:   "WHISTLE: Stoppage" or "WHISTLE: Stoppage - offside"
   Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"
 
 Player names are formatted as "#<number> <FirstInitial>. <LastName>" when resolved from jersey numbers using player_map.
