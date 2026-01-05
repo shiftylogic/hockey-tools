@@ -150,9 +150,9 @@ Example Lines:
   giveaway|15678.9|player:27
 
 TAG: save
-Fields: player:{number}
+Fields: (none - assumes current goalie)
 Example Lines:
-  save|16789.0|player:25
+  save|16789.0
 
 TAG: start
 Fields: period:{1|2|3|OT}|length:{mm:ss}|goalie:{number}|defense:{d1,d2}|forwards:{f1,f2,f3}
@@ -242,8 +242,7 @@ mp.input features utilized:
   2. Enter jersey number of player who lost the puck
 
 5.9 SAVE TAG
-  1. Enter "save" (auto-complete available)
-  2. Enter jersey number of goaltender
+   1. Enter "save" (auto-complete available)
 
 5.10 START TAG
   1. Enter "start" (auto-complete available)
@@ -300,7 +299,7 @@ Uses mp.osd_message for status updates:
   Pass:      "PASS: #11 L. Draisaitl -> #97 Ro. Breckterfield (success)"
   Takeaway:  "TAKEAWAY: #7 K. Garver"
   Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
-  Save:      "SAVE: #30 C. Connachan"
+  Save:      "SAVE"
   Start:     "4-line centered summary showing period, goalie, defensemen, and forwards"
   Whistle:   "WHISTLE: Stoppage" or "WHISTLE: Stoppage - offside"
   Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"

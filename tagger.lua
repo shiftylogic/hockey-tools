@@ -169,9 +169,7 @@ local tag_definitions = {
     },
     save = {
         prompt = "Save",
-        fields = {
-            {name = "player", prompt = "Goaltender:", required = true, player = true},
-        }
+        fields = {}
     },
     start = {
         prompt = "Start",
@@ -411,7 +409,7 @@ local function show_tag_summary(tag_type, data)
     elseif tag_type == "giveaway" then
         msg = msg .. player_name(data.player)
     elseif tag_type == "save" then
-        msg = msg .. player_name(data.player)
+        msg = "SAVE"
     elseif tag_type == "start" then
         local period = data.period or "?"
         local period_ordinal = period:upper() == "OT" and "Overtime" or period .. (period == "1" and "st" or period == "2" and "nd" or "rd")
@@ -521,7 +519,7 @@ local formatters = {
     end,
 
     save = function(data)
-        return "save|player:" .. data.player
+        return "save"
     end,
 
     start = function(data)
