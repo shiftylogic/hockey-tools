@@ -1,0 +1,29 @@
+{
+    "leader_key": "ctrl+t",
+
+    "player_numbers": [
+        6,7,8,16,18,19,22,24,30,31,34,47,81,86,88,89,90,97
+    ],
+
+    "player_map": {
+        "6": "D. Steele",
+        "7": "K. Garver",
+        "8": "C. Poon",
+        "16": "H. Dockter",
+        "18": "L. Bacon",
+        "19": "Ri. Breckterfield",
+        "22": "V. Han",
+        "24": "R. Latham",
+        "30": "C. Connachan",
+        "31": "K. Khorram",
+        "34": "J. Thompson",
+        "47": "L. Graham",
+        "81": "S. Han",
+        "86": "M. Schull",
+        "88": "N. Anderson",
+        "89": "A. Kolter",
+        "90": "M. Park",
+        "97": "Ro. Breckterfield"
+    }
+}
+
