@@ -291,7 +291,7 @@ Uses mp.osd_message for status updates:
 
 7.1 TAG SUMMARY FORMATS
 
-  Goal:      "GOAL: GOAL by #27 J. Thompson (A: #19 Ri. Breckterfield, #8 C. Poon)"
+  Goal:      "GOAL: #27 J. Thompson (A: #19 Ri. Breckterfield, #8 C. Poon)"
   Penalty:   "PENALTY: #97 Ro. Breckterfield - 2 min hooking"
   Shot:      "SHOT: #8 C. Poon - missed"
   Block:     "BLOCK: #24 R. Latham"

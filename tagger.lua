@@ -479,7 +479,7 @@ end
 
 local function format_for_display(tag_type, data)
     if tag_type == "goal" then
-        local msg = "GOAL by " .. player_name(data.scorer)
+        local msg = "GOAL: " .. player_name(data.scorer)
         local assists_list = {}
         if data.assists then
             for _, v in ipairs(data.assists) do if v and v ~= "" then table.insert(assists_list, player_name(v)) end end
@@ -490,10 +490,10 @@ local function format_for_display(tag_type, data)
         return msg
 
     elseif tag_type == "penalty" then
-        return player_name(data.player) .. " - " .. data.length .. " min " .. data.type
+        return "PENALTY: " .. player_name(data.player) .. " - " .. data.length .. " min " .. data.type
 
     elseif tag_type == "shot" then
-        return player_name(data.player) .. " - " .. data.outcome
+        return "SHOT: " .. player_name(data.player) .. " - " .. data.outcome
 
     elseif tag_type == "block" then
         return "BLOCK: " .. player_name(data.player)
@@ -502,7 +502,7 @@ local function format_for_display(tag_type, data)
         return "OUT: " .. player_name(data.out) .. "  |  IN: " .. player_name(data.incoming)
 
     elseif tag_type == "pass" then
-        return player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ")"
+        return "PASS: " .. player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ")"
 
     elseif tag_type == "takeaway" then
         return "TAKEAWAY: " .. player_name(data.player)
@@ -550,13 +550,13 @@ local function format_for_display(tag_type, data)
 
     elseif tag_type == "whistle" then
         if data.reason and data.reason ~= "" then
-            return "Stoppage - " .. data.reason
+            return "WHISTLE: Stoppage - " .. data.reason
         else
-            return "Stoppage"
+            return "WHISTLE: Stoppage"
         end
 
     elseif tag_type == "faceoff" then
-        return player_name(data.player) .. (data.win == "y" and " WON" or " LOST")
+        return "FACEOFF: " .. player_name(data.player) .. (data.win == "y" and " WON" or " LOST")
     end
 
     return nil
