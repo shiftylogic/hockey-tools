@@ -211,7 +211,8 @@ local penalty_types_list = {
     "kneeing", "butt-ending", "spearing", "throwing equipment"
 }
 
-local outcome_list = {"missed", "saved", "blocked", "success", "off-target"}
+local shot_outcome_list = {"missed", "saved", "blocked"}
+local pass_outcome_list = {"missed", "success", "off-target"}
 
 
 -- ============================================================================
@@ -295,7 +296,8 @@ end
 
 local function complete_tag_type(t) return complete_from_list(t, tag_types_list) end
 local function complete_penalty_type(t) return complete_from_list(t, penalty_types_list) end
-local function complete_outcome(t) return complete_from_list(t, outcome_list) end
+local function complete_shot_outcome(t) return complete_from_list(t, shot_outcome_list) end
+local function complete_pass_outcome(t) return complete_from_list(t, pass_outcome_list) end
 
 local function complete_player(num)
     local matches = {}
@@ -401,7 +403,7 @@ local function show_tag_summary(tag_type, data)
     elseif tag_type == "block" then
         msg = msg .. player_name(data.player)
     elseif tag_type == "change" then
-        msg = "CHANGE: " .. player_name(data.out) .. " out, " .. player_name(data.incoming) .. " in"
+        msg = "OUT: " .. player_name(data.out) .. "  |  IN: " .. player_name(data.incoming)
     elseif tag_type == "pass" then
         msg = msg .. player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ")"
     elseif tag_type == "takeaway" then
@@ -579,6 +581,30 @@ local validators = {
     end,
 
     start = function(data)
+        if not data.goalie or data.goalie == "" then
+            return "Goalie required"
+        end
+
+        local defense_count = 0
+        for _, entry in ipairs(data) do
+            if entry.name == "defense" and entry.value ~= "" then
+                defense_count = defense_count + 1
+            end
+        end
+        if defense_count < 1 or defense_count > 2 then
+            return "Start requires 1-2 defensemen (got " .. defense_count .. ")"
+        end
+
+        local forward_count = 0
+        for _, entry in ipairs(data) do
+            if entry.name == "forwards" and entry.value ~= "" then
+                forward_count = forward_count + 1
+            end
+        end
+        if forward_count < 1 or forward_count > 3 then
+            return "Start requires 1-3 forwards (got " .. forward_count .. ")"
+        end
+
         return nil
     end,
 }
@@ -650,8 +676,10 @@ local function do_next_field()
         elseif field.autocomplete == "tag_type" then
             completion = complete_tag_type
         end
-    elseif field.name == "outcome" or field.name == "success" then
-        completion = complete_outcome
+    elseif field.name == "outcome" then
+        completion = complete_shot_outcome
+    elseif field.name == "success" then
+        completion = complete_pass_outcome
     end
 
     input.get({

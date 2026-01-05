@@ -87,7 +87,7 @@ Filename: {video_filename}_tags_{session_start_timestamp}.log
 Example:  "edm_v_nyj_tags_1697324567.log"
 
 Line Format:
-  {tag_type}|{timestamp_seconds}|{field1}|{field2}|...
+  {timestamp_seconds}|{tag_type}|{field1}|{field2}|...
 
 Timestamp: Seconds since beginning of video (with decimal precision)
 
@@ -296,7 +296,7 @@ Uses mp.osd_message for status updates:
   Penalty:   "PENALTY: #97 Ro. Breckterfield - 2 min hooking"
   Shot:      "SHOT: #8 C. Poon - missed"
   Block:     "BLOCK: #24 R. Latham"
-  Change:    "CHANGE: OUT: #18 L. Bacon IN: #22 V. Han"
+  Change:    "OUT: #18 L. Bacon  |  IN: #22 V. Han"
   Pass:      "PASS: #11 L. Draisaitl -> #97 Ro. Breckterfield (success)"
   Takeaway:  "TAKEAWAY: #7 K. Garver"
   Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
