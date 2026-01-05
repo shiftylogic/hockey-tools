@@ -677,7 +677,7 @@ local function do_next_field()
             end
 
             if field.name == "win" then
-                value = (value:lower():match("^[ywn]") and "y" or "n")
+                value = value:lower():match("^[y]") and "y" or "n"
             end
 
             if field.multi then
