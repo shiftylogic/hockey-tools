@@ -155,12 +155,15 @@ Example Lines:
   save|16789.0|player:25
 
 TAG: start
-Fields: goalie:{number}|players:{p1,p2,p3,...}
-Requirements:
-  - players: 3 to 5 skaters on ice
+Fields: period:{1|2|3|OT}|length:{mm:ss}|goalie:{number}|defense:{d1,d2}|forwards:{f1,f2,f3}
+Notes:
+  - Period: 1, 2, 3, or OT (overtime)
+  - Length: game length in mm:ss format (e.g., 20:00, 3:45)
+  - defense: 1 to 2 defensemen (comma-separated)
+  - forwards: 1 to 3 forwards (comma-separated)
 Example Lines:
-  start|18000.0|goalie:25|players:4,10,11,19,93
-  start|18005.5|goalie:25|players:5,7,9,12
+  start|period:1|length:20:00|goalie:25|defense:4,5|forwards:10,11,19
+  start|period:2|length:3:45|goalie:25|defense:4|forwards:10,11
 
 TAG: whistle
 Fields: (none)
@@ -294,7 +297,7 @@ Uses mp.osd_message for status updates:
   Takeaway:  "TAKEAWAY: #7 K. Garver"
   Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
   Save:      "SAVE: #30 C. Connachan"
-  Start:     "START: Goalie: #30 C. Connachan (#4 V. LO, #5 M. Green, #93 N. Hanifin)"
+  Start:     "4-line centered summary showing period, goalie, defensemen, and forwards"
   Whistle:   "WHISTLE: Stoppage"
   Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"
 

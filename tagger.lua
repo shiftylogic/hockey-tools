@@ -176,8 +176,11 @@ local tag_definitions = {
     start = {
         prompt = "Start",
         fields = {
+            {name = "period", prompt = "Period (1, 2, 3, OT):", required = true, validate = function(v) return v == "1" or v == "2" or v == "3" or v:upper() == "OT" end, error = "Use: 1, 2, 3, or OT"},
+            {name = "length", prompt = "Length (mm:ss):", required = true, validate = function(v) return v:match("^%d+:%d%d$") ~= nil end, error = "Use: mm:ss"},
             {name = "goalie", prompt = "Goaltender:", required = true, player = true},
-            {name = "players", prompt = "Players (Enter to finish):", required = false, player = true, multi = true, min_count = 3, max_count = 5},
+            {name = "defense", prompt = "Defensemen (Enter to finish):", required = false, player = true, multi = true, min_count = 1, max_count = 2},
+            {name = "forwards", prompt = "Forwards (Enter to finish):", required = false, player = true, multi = true, min_count = 1, max_count = 3},
         }
     },
     whistle = {
@@ -406,14 +409,38 @@ local function show_tag_summary(tag_type, data)
     elseif tag_type == "save" then
         msg = msg .. player_name(data.player)
     elseif tag_type == "start" then
-        msg = "START: " .. "Goalie: " .. player_name(data.goalie)
-        local players = {}
+        local period = data.period or "?"
+        local period_ordinal = period:upper() == "OT" and "Overtime" or period .. (period == "1" and "st" or period == "2" and "nd" or "rd")
+        local defense = {}
         for _, entry in ipairs(data) do
-            if entry.name == "players" and entry.value ~= "" then
-                table.insert(players, player_name(entry.value))
+            if entry.name == "defense" and entry.value ~= "" then
+                table.insert(defense, player_name(entry.value))
             end
         end
-        if #players > 0 then msg = msg .. " (" .. table.concat(players, ", ") .. ")" end
+        local forwards = {}
+        for _, entry in ipairs(data) do
+            if entry.name == "forwards" and entry.value ~= "" then
+                table.insert(forwards, player_name(entry.value))
+            end
+        end
+
+        local overlay = mp.create_osd_overlay("ass-events")
+        if overlay then
+            local lines = {
+                "Start of " .. period_ordinal .. " Period",
+                player_name(data.goalie),
+                #defense > 0 and table.concat(defense, " | ") or "",
+                #forwards > 0 and table.concat(forwards, " | ") or ""
+            }
+            local ass = "{\\an5\\fs28\\bord2\\shad1\\c&H00EEFF00&\\3c&H000000&}"
+            ass = ass .. table.concat(lines, "\\N")
+            overlay.data = ass
+            overlay:update()
+            mp.add_timeout(5, function()
+                overlay:remove()
+            end)
+        end
+        return
     elseif tag_type == "whistle" then
         msg = "Stoppage"
     elseif tag_type == "faceoff" then
@@ -490,14 +517,26 @@ local formatters = {
     end,
 
     start = function(data)
-        local line = string.format("start|goalie:%s", data.goalie)
-        local players = {}
+        local period = data.period or "?"
+        local length = data.length or "?"
+        local line = string.format("start|period:%s|length:%s|goalie:%s", period, length, data.goalie)
+
+        local defense = {}
         for _, entry in ipairs(data) do
-            if entry.name == "players" and entry.value ~= "" then
-                table.insert(players, entry.value)
+            if entry.name == "defense" and entry.value ~= "" then
+                table.insert(defense, entry.value)
             end
         end
-        if #players > 0 then line = line .. "|players:" .. table.concat(players, ",") end
+        if #defense > 0 then line = line .. "|defense:" .. table.concat(defense, ",") end
+
+        local forwards = {}
+        for _, entry in ipairs(data) do
+            if entry.name == "forwards" and entry.value ~= "" then
+                table.insert(forwards, entry.value)
+            end
+        end
+        if #forwards > 0 then line = line .. "|forwards:" .. table.concat(forwards, ",") end
+
         return line
     end,
 
@@ -529,13 +568,6 @@ local validators = {
     end,
 
     start = function(data)
-        local count = 0
-        for _, entry in ipairs(data) do
-            if entry.name == "players" and entry.value ~= "" then count = count + 1 end
-        end
-        if count < 3 or count > 5 then
-            return "Start requires 3-5 players (got " .. count .. ")"
-        end
         return nil
     end,
 }
