@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2022-present Robert Anderson.
+# Copyright (c) 2025-present Robert Anderson.
 # SPDX-License-Identifier: MIT
 #
 
