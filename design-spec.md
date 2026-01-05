@@ -24,56 +24,54 @@ Scope:   Single-user personal tool, potentially shared with small group.
 
 Location: Set via TAGGER_CONF environment variable
 
-Format:   Simple key=value pairs, one per line
+Format:   JSON
 
 Configuration Parameters:
-  - leader_key     : Key that triggers tag mode (default: ctrl+t)
-  - player_numbers : Comma-separated list of valid jersey numbers
-  - player_map     : Lua table mapping numbers to names
+  - leader_key : Key that triggers tag mode (default: ctrl+t)
+  - player_map : JSON object mapping jersey numbers to names
 
 Sample Configuration:
 --------------------------------------------------------------------------------
-leader_key=ctrl+t
-
-player_numbers=4,5,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,44,55,61,62,71,77,81,88,91,92,93
-
-player_map = {
-  4 = "Viktor LO",
-  5 = "Mike Green",
-  7 = "Darnell Nurse",
-  8 = "Adam Henrique",
-  9 = "Jack Campbell",
-  10 = "Ryan Nugent-Hopkins",
-  11 = "Leon Draisaitl",
-  12 = "Corey Perry",
-  13 = "Matt Coronato",
-  14 = "Sam Carrick",
-  15 = "Zach Hyman",
-  16 = "Kasperi Kapanen",
-  17 = "Jeff Petry",
-  18 = "Lane Pederson",
-  19 = "Mattias Janmark",
-  20 = "Connor Brown",
-  21 = "Brandon Tanev",
-  22 = "Tyler Benson",
-  23 = "Brett Kulak",
-  24 = "Philip Broberg",
-  25 = "Stuart Skinner",
-  26 = "Evander Kane",
-  27 = "Brett Connolly",
-  28 = "Dylan Holloway",
-  29 = "Vincent Desharnais",
-  44 = "Cody Ceci",
-  55 = "Mark Giordano",
-  61 = "Carter Savoie",
-  62 = "Brad Malone",
-  71 = "Ryan McLeod",
-  77 = "Klim Kostin",
-  81 = "Philipp Kurashev",
-  88 = "Andrei Sviatoshinskiy",
-  91 = "Connor McDavid",
-  92 = "Warren Foegele",
-  93 = "Noah Hanifin"
+{
+  "leader_key": "ctrl+t",
+  "player_map": {
+    "4": "Viktor LO",
+    "5": "Mike Green",
+    "7": "Darnell Nurse",
+    "8": "Adam Henrique",
+    "9": "Jack Campbell",
+    "10": "Ryan Nugent-Hopkins",
+    "11": "Leon Draisaitl",
+    "12": "Corey Perry",
+    "13": "Matt Coronato",
+    "14": "Sam Carrick",
+    "15": "Zach Hyman",
+    "16": "Kasperi Kapanen",
+    "17": "Jeff Petry",
+    "18": "Lane Pederson",
+    "19": "Mattias Janmark",
+    "20": "Connor Brown",
+    "21": "Brandon Tanev",
+    "22": "Tyler Benson",
+    "23": "Brett Kulak",
+    "24": "Philip Broberg",
+    "25": "Stuart Skinner",
+    "26": "Evander Kane",
+    "27": "Brett Connolly",
+    "28": "Dylan Holloway",
+    "29": "Vincent Desharnais",
+    "44": "Cody Ceci",
+    "55": "Mark Giordano",
+    "61": "Carter Savoie",
+    "62": "Brad Malone",
+    "71": "Ryan McLeod",
+    "77": "Klim Kostin",
+    "81": "Philipp Kurashev",
+    "88": "Andrei Sviatoshinskiy",
+    "91": "Connor McDavid",
+    "92": "Warren Foegele",
+    "93": "Noah Hanifin"
+  }
 }
 --------------------------------------------------------------------------------
 
@@ -87,7 +85,9 @@ Filename: {video_filename}_tags_{session_start_timestamp}.log
 Example:  "edm_v_nyj_tags_1697324567.log"
 
 Line Format:
-  {timestamp_seconds}|{tag_type}|{field1}|{field2}|...
+  {timestamp_seconds}|{tag_type}|field1|field2|...
+
+Note: Fields are formatted as key:value pairs within the tag type section
 
 Timestamp: Seconds since beginning of video (with decimal precision)
 
@@ -102,9 +102,9 @@ Requirements:
   - assists: 0 to 2 players (comma-separated)
   - other: remaining players to reach minimum 3, maximum 6 (comma-separated)
 Example Lines:
-  goal|1234.5|score:27|assists:19,14|other:5,7,22
-  goal|2345.0|score:91||other:10,12,55
-  goal|3456.7|score:11|other:23,44,71,77
+  1234.5|goal|score:27|assists:19,14|other:5,7,22
+  2345.0|goal|score:91|other:10,12,55
+  3456.7|goal|score:11|other:23,44,71,77
 
 TAG: penalty
 Fields: player:{number}|length:{mm}|type:{penalty_type}
@@ -112,73 +112,73 @@ Notes:
   - Length input: 2, 5, or 10 (minutes)
   - Type: auto-complete from common penalty types
 Example Lines:
-  penalty|4567.1|player:44|length:2|type:hooking
-  penalty|5678.9|player:27|length:5|type:fighting
+  4567.1|penalty|player:44|length:2|type:hooking
+  5678.9|penalty|player:27|length:5|type:fighting
 
 TAG: shot
 Fields: player:{number}|outcome:{missed|saved|blocked}
 Example Lines:
-  shot|6789.0|player:8|outcome:missed
-  shot|7890.1|player:29|outcome:saved
-  shot|8901.2|player:19|outcome:blocked
+  6789.0|shot|player:8|outcome:missed
+  7890.1|shot|player:29|outcome:saved
+  8901.2|shot|player:19|outcome:blocked
 
 TAG: block
 Fields: player:{number}
 Example Lines:
-  block|9012.3|player:22
+  9012.3|block|player:22
 
 TAG: change
 Fields: out:{number}|incoming:{number}
 Example Lines:
-  change|10123.4|out:18|incoming:29
+  10123.4|change|out:18|incoming:29
 
 TAG: pass
 Fields: from:{number}|to:{number}|success:{success|off-target|missed}
 Example Lines:
-  pass|11234.5|from:11|to:19|success:success
-  pass|12345.6|from:97|to:12|success:off-target
-  pass|13456.7|from:7|to:91|success:missed
+  11234.5|pass|from:11|to:19|success:success
+  12345.6|pass|from:97|to:12|success:off-target
+  13456.7|pass|from:7|to:91|success:missed
 
 TAG: takeaway
 Fields: player:{number}
 Example Lines:
-  takeaway|14567.8|player:7
+  14567.8|takeaway|player:7
 
 TAG: giveaway
 Fields: player:{number}
 Example Lines:
-  giveaway|15678.9|player:27
+  15678.9|giveaway|player:27
 
 TAG: save
 Fields: (none - assumes current goalie)
 Example Lines:
-  save|16789.0
+  16789.0|save
 
 TAG: start
 Fields: period:{1|2|3|OT}|length:{mm:ss}|goalie:{number}|defense:{d1,d2}|forwards:{f1,f2,f3}
 Notes:
   - Period: 1, 2, 3, or OT (overtime)
-  - Length: game length in mm:ss format (e.g., 20:00, 3:45)
+  - Length: period length in mm:ss format (e.g., 20:00, 3:45)
   - defense: 1 to 2 defensemen (comma-separated)
   - forwards: 1 to 3 forwards (comma-separated)
 Example Lines:
-  start|period:1|length:20:00|goalie:25|defense:4,5|forwards:10,11,19
-  start|period:2|length:3:45|goalie:25|defense:4|forwards:10,11
+  0.0|start|period:1|length:20:00|goalie:25|defense:4,5|forwards:10,11,19
+  1200.0|start|period:2|length:3:45|goalie:25|defense:4|forwards:10,11
 
 TAG: whistle
 Fields: reason:{optional description}
 Notes:
   - reason: Optional text describing the stoppage reason
 Example Lines:
-  whistle|10.5
-  whistle|120.0|reason:offside
-  whistle|234.5|reason:icing
+  10.5|whistle
+  120.0|whistle|reason:offside
+  234.5|whistle|reason:icing
 
 TAG: faceoff
 Fields: player:{number}|win:{y|n}
 Example Lines:
-  faceoff|20000.0|player:11|win:y
-  faceoff|20005.5|player:29|win:n
+  20000.0|faceoff|player:11|win:y
+  20005.5|faceoff|player:29|win:n
 
 --------------------------------------------------------------------------------
 4. IMPLEMENTATION ARCHITECTURE

@@ -15,6 +15,7 @@
     Output: {video}_tags_{timestamp}.log next to source video
 ]]
 
+
 local msg = require 'mp.msg'
 local utils = require 'mp.utils'
 local options = require 'mp.options'
@@ -27,7 +28,6 @@ local input = require 'mp.input'
 
 local config = {
     leader_key = "ctrl+t",
-    player_numbers = {},
     player_map = {},
 }
 
@@ -46,15 +46,8 @@ local function load_config(path)
 
     local result = {
         leader_key = parsed.leader_key or "ctrl+t",
-        player_numbers = {},
         player_map = {},
     }
-
-    if parsed.player_numbers then
-        for _, num in ipairs(parsed.player_numbers) do
-            table.insert(result.player_numbers, tonumber(num))
-        end
-    end
 
     if parsed.player_map then
         for num, name in pairs(parsed.player_map) do
@@ -96,7 +89,6 @@ end
 local user_config = load_effective_config()
 if user_config then
     config.leader_key = user_config.leader_key or config.leader_key
-    config.player_numbers = user_config.player_numbers or config.player_numbers
     config.player_map = user_config.player_map or config.player_map
 end
 
@@ -225,9 +217,6 @@ local penalty_types_list = {
     "too many men", "roughing", "boarding", "charging", "elbowing",
     "kneeing", "butt-ending", "spearing", "throwing equipment"
 }
-
-local shot_outcome_list = {"missed", "saved", "blocked"}
-local pass_outcome_list = {"missed", "success", "off-target"}
 
 
 -- ============================================================================
