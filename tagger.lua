@@ -309,6 +309,15 @@ end
 -- OSD HELPERS
 -- ============================================================================
 
+local tag_preview_overlay = nil
+
+local function hide_tag_preview()
+    if tag_preview_overlay then
+        tag_preview_overlay:remove()
+        tag_preview_overlay = nil
+    end
+end
+
 local function show_osd(text, timeout)
     mp.osd_message(text, timeout or 3)
 end
@@ -325,11 +334,54 @@ local function player_name(num)
     return "Player " .. num
 end
 
+local function update_tag_preview(tag_type, fields, data)
+    hide_tag_preview()
+
+    if not fields or not tag_type or not data then return end
+    if type(tag_type) ~= "string" then return end
+    if type(fields) ~= "table" then return end
+    if type(data) ~= "table" then return end
+
+    local lines = {"[" .. tag_type:upper() .. "]"}
+
+    for i, field in ipairs(fields) do
+        local value = data[field.name]
+        if field.multi then
+            local values = {}
+            for _, entry in ipairs(data) do
+                if entry.name == field.name and entry.value ~= "" then
+                    table.insert(values, player_name(entry.value))
+                end
+            end
+            if #values > 0 then
+                table.insert(lines, field.prompt:gsub(":", "") .. ": " .. table.concat(values, ", "))
+            end
+        elseif value and value ~= "" then
+            local display_value = value
+            if field.player then
+                display_value = player_name(value)
+            elseif field.name == "win" then
+                display_value = value == "y" and "WON" or "LOST"
+            elseif field.name == "length" then
+                display_value = value .. " min"
+            end
+            table.insert(lines, field.prompt:gsub(":", "") .. ": " .. display_value)
+        end
+    end
+
+    local ass = "{\\an3\\fs24\\bord1\\shad1\\c&H00EEEEFF&\\3c&H000000&}" .. table.concat(lines, "\\N")
+
+    tag_preview_overlay = mp.create_osd_overlay("ass-events")
+    if not tag_preview_overlay then return end
+    tag_preview_overlay.data = ass
+    tag_preview_overlay:update()
+end
+
 local function show_tag_summary(tag_type, data)
-    local msg = tag_type:upper() .. ": "
+    local msg = tag_type:upper() .. " by "
 
     if tag_type == "goal" then
-        msg = msg .. "GOAL by " .. player_name(data.scorer)
+        msg = msg .. player_name(data.scorer)
         if data.assist1 and data.assist1 ~= "" then
             msg = msg .. " (A: " .. player_name(data.assist1)
             if data.assist2 and data.assist2 ~= "" then
@@ -344,7 +396,7 @@ local function show_tag_summary(tag_type, data)
     elseif tag_type == "block" then
         msg = msg .. player_name(data.player)
     elseif tag_type == "change" then
-        msg = msg .. "OUT: " .. player_name(data.out) .. " IN: " .. player_name(data.incoming)
+        msg = "CHANGE: " .. player_name(data.out) .. " out, " .. player_name(data.incoming) .. " in"
     elseif tag_type == "pass" then
         msg = msg .. player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ")"
     elseif tag_type == "takeaway" then
@@ -354,7 +406,7 @@ local function show_tag_summary(tag_type, data)
     elseif tag_type == "save" then
         msg = msg .. player_name(data.player)
     elseif tag_type == "start" then
-        msg = msg .. "Goalie: " .. player_name(data.goalie)
+        msg = "START: " .. "Goalie: " .. player_name(data.goalie)
         local players = {}
         for _, entry in ipairs(data) do
             if entry.name == "players" and entry.value ~= "" then
@@ -363,12 +415,19 @@ local function show_tag_summary(tag_type, data)
         end
         if #players > 0 then msg = msg .. " (" .. table.concat(players, ", ") .. ")" end
     elseif tag_type == "whistle" then
-        msg = msg .. "Stoppage"
+        msg = "Stoppage"
     elseif tag_type == "faceoff" then
         msg = msg .. player_name(data.player) .. (data.win == "y" and " WON" or " LOST")
     end
 
-    show_osd(msg, 5)
+    local overlay = mp.create_osd_overlay("ass-events")
+    if overlay then
+        overlay.data = "{\\an5\\fs30\\bord2\\shad1\\c&H00EEFF00&\\3c&H000000&}" .. msg
+        overlay:update()
+        mp.add_timeout(5, function()
+            overlay:remove()
+        end)
+    end
 end
 
 
@@ -482,6 +541,7 @@ local validators = {
 }
 
 local function validate_and_log(tag_type, data)
+    hide_tag_preview()
     local timestamp = mp.get_property_number("time-pos", 0)
 
     if validators[tag_type] then
@@ -529,11 +589,14 @@ local function do_next_field()
     pending_data = nil
 
     if index > #fields then
+        hide_tag_preview()
         validate_and_log(tag_type, data)
         return
     end
 
     local field = fields[index]
+
+    update_tag_preview(tag_type, fields, data)
 
     local completion = nil
     if field.player then
@@ -552,6 +615,7 @@ local function do_next_field()
         prompt = field.prompt,
         complete = completion,
         submit = function(value)
+            hide_tag_preview()
             if not value or value == "" then
                 if field.required and not field.multi then
                     show_error("Field required")
@@ -626,6 +690,10 @@ local function do_next_field()
             pending_data = data
             mp.add_timeout(0.1, do_next_field)
         end,
+        cancel = function()
+            hide_tag_preview()
+            mp.set_property_bool("pause", false)
+        end,
     })
 end
 
@@ -654,7 +722,12 @@ local function start_tagging()
 
             pending_field = {tag_type = tag_type, fields = tag.fields, index = 1}
             pending_data = {}
+            update_tag_preview(tag_type, tag.fields, pending_data)
             mp.add_timeout(0.1, do_next_field)
+        end,
+        cancel = function()
+            hide_tag_preview()
+            mp.set_property_bool("pause", false)
         end,
     })
 end
