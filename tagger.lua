@@ -124,7 +124,7 @@ local tag_definitions = {
         fields = {
             {name = "player", prompt = "Player:", required = true, player = true},
             {name = "length", prompt = "Length (2, 5, or 10):", required = true, validate = function(v) return v == "2" or v == "5" or v == "10" end, error = "Use: 2, 5, or 10"},
-            {name = "type", prompt = "Type:", required = true, autocomplete = true},
+            {name = "type", prompt = "Type:", required = true, autocomplete = "penalty"},
         }
     },
     shot = {
@@ -277,13 +277,15 @@ end
 -- ============================================================================
 
 local function complete_from_list(input_text, list)
+    local input_lower = input_text:lower()
     local matches = {}
     for _, item in ipairs(list) do
-        if item:find(input_text, 1, true) == 1 then
+        if item:lower():find(input_lower, 1, true) == 1 then
             table.insert(matches, item)
         end
     end
-    return matches
+    if #matches == 0 then return nil end
+    return matches, 1, ""
 end
 
 local function complete_tag_type(t) return complete_from_list(t, tag_types_list) end
@@ -298,7 +300,8 @@ local function complete_player(num)
             table.insert(matches, s)
         end
     end
-    return matches
+    if #matches == 0 then return nil end
+    return matches, 1, ""
 end
 
 
@@ -315,7 +318,11 @@ local function show_error(message)
 end
 
 local function player_name(num)
-    return config.player_map[tonumber(num)] or "Player " .. num
+    local name = config.player_map[tonumber(num)]
+    if name then
+        return "#" .. num .. " " .. name
+    end
+    return "Player " .. num
 end
 
 local function show_tag_summary(tag_type, data)
@@ -532,14 +539,18 @@ local function do_next_field()
     if field.player then
         completion = complete_player
     elseif field.autocomplete then
-        completion = complete_penalty_type
+        if field.autocomplete == "penalty" then
+            completion = complete_penalty_type
+        elseif field.autocomplete == "tag_type" then
+            completion = complete_tag_type
+        end
     elseif field.name == "outcome" or field.name == "success" then
         completion = complete_outcome
     end
 
     input.get({
         prompt = field.prompt,
-        completion = completion,
+        complete = completion,
         submit = function(value)
             if not value or value == "" then
                 if field.required and not field.multi then
@@ -627,7 +638,7 @@ local function start_tagging()
 
     input.get({
         prompt = "Tag type:",
-        completion = complete_tag_type,
+        complete = complete_tag_type,
         submit = function(tag_type)
             if not tag_type or tag_type == "" then
                 mp.set_property_bool("pause", false)

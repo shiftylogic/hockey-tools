@@ -285,20 +285,20 @@ Uses mp.osd_message for status updates:
 
 7.1 TAG SUMMARY FORMATS
 
-  Goal:      "GOAL: GOAL by {name} (A: {name}, {name})"
-  Penalty:   "PENALTY: {name} - {2,5,10} min {type}"
-  Shot:      "SHOT: {name} - {missed,saved,blocked}"
-  Block:     "BLOCK: {name}"
-  Change:    "CHANGE: OUT: {name} IN: {name}"
-  Pass:      "PASS: {name} -> {name} ({outcome})"
-  Takeaway:  "TAKEAWAY: {name}"
-  Giveaway:  "GIVEAWAY: {name}"
-  Save:      "SAVE: {name}"
-  Start:     "START: Goalie: {name} ({p1, p2, ...})"
+  Goal:      "GOAL: GOAL by #27 J. Thompson (A: #19 Ri. Breckterfield, #8 C. Poon)"
+  Penalty:   "PENALTY: #97 Ro. Breckterfield - 2 min hooking"
+  Shot:      "SHOT: #8 C. Poon - missed"
+  Block:     "BLOCK: #24 R. Latham"
+  Change:    "CHANGE: OUT: #18 L. Bacon IN: #22 V. Han"
+  Pass:      "PASS: #11 L. Draisaitl -> #97 Ro. Breckterfield (success)"
+  Takeaway:  "TAKEAWAY: #7 K. Garver"
+  Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
+  Save:      "SAVE: #30 C. Connachan"
+  Start:     "START: Goalie: #30 C. Connachan (#4 V. LO, #5 M. Green, #93 N. Hanifin)"
   Whistle:   "WHISTLE: Stoppage"
-  Faceoff:   "FACEOFF: {name} WON/LOST"
+  Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"
 
-Player names are resolved from jersey numbers using player_map.
+Player names are formatted as "#<number> <FirstInitial>. <LastName>" when resolved from jersey numbers using player_map.
 
 --------------------------------------------------------------------------------
 8. KEY BINDINGS
