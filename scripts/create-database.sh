@@ -206,6 +206,15 @@ CREATE TABLE IF NOT EXISTS faceoffs (
     extra5_id INTEGER REFERENCES roster(player_id)
 );
 
+CREATE TABLE IF NOT EXISTS shifts (
+    shift_id INTEGER PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES games(game_id),
+    player_id INTEGER NOT NULL REFERENCES roster(player_id),
+    period INTEGER NOT NULL CHECK (period BETWEEN 1 AND 4),
+    start_seconds INTEGER NOT NULL,
+    end_seconds INTEGER NOT NULL
+);
+
 -- ============================================================================
 -- INDEXES
 -- ============================================================================
@@ -241,6 +250,10 @@ CREATE INDEX IF NOT EXISTS idx_faceoffs_game ON faceoffs(game_id);
 -- Penalty queries
 CREATE INDEX IF NOT EXISTS idx_penalties_type_category ON penalty_types(penalty_category);
 CREATE INDEX IF NOT EXISTS idx_penalties_player_type ON penalties(penalty_type_id);
+
+-- Shift queries (ice time)
+CREATE INDEX IF NOT EXISTS idx_shifts_player_game ON shifts(player_id, game_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_period ON shifts(player_id, game_id, period);
 
 -- ============================================================================
 -- SEED DATA

@@ -244,6 +244,19 @@ Faceoff results.
 | extra4_id | INTEGER | NULL REFERENCES roster(player_id) | Extra skater on ice |
 | extra5_id | INTEGER | NULL REFERENCES roster(player_id) | Extra skater on ice |
 
+### shifts
+
+Player shifts during games for tracking ice time.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| shift_id | INTEGER | PRIMARY KEY | Surrogate key |
+| game_id | INTEGER | NOT NULL REFERENCES games(game_id) | |
+| player_id | INTEGER | NOT NULL REFERENCES roster(player_id) | Player on shift |
+| period | INTEGER | NOT NULL CHECK(period BETWEEN 1 AND 4) | |
+| start_seconds | INTEGER | NOT NULL | Shift start time (seconds from period start) |
+| end_seconds | INTEGER | NOT NULL | Shift end time (seconds from period start) |
+
 ---
 
 ## Zone Mappings
@@ -308,6 +321,12 @@ CREATE INDEX idx_faceoffs_player_game ON faceoffs(player_id, game_id);
 
 ### General FK Indexes (automatic benefit)
 All FK columns are indexed implicitly for JOIN performance.
+
+### Shift Indexes (for ice time queries)
+```sql
+CREATE INDEX idx_shifts_player_game ON shifts(player_id, game_id);
+CREATE INDEX idx_shifts_period ON shifts(player_id, game_id, period);
+```
 
 ---
 
@@ -460,6 +479,52 @@ JOIN roster r ON p.player_id = r.player_id
 JOIN penalty_types pt ON p.penalty_type_id = pt.penalty_type_id
 GROUP BY r.player_id, pt.penalty_category
 ORDER BY penalty_minutes DESC;
+```
+
+### Total Playing Time by Player (All Games)
+```sql
+SELECT
+    r.player_name,
+    r.jersey_number,
+    SUM(s.end_seconds - s.start_seconds) AS total_seconds,
+    ROUND(SUM(s.end_seconds - s.start_seconds) / 60.0, 2) AS total_minutes,
+    COUNT(*) AS shift_count
+FROM shifts s
+JOIN roster r ON s.player_id = r.player_id
+GROUP BY r.player_id
+ORDER BY total_seconds DESC;
+```
+
+### Total Playing Time by Player (Per Period)
+```sql
+SELECT
+    r.player_name,
+    r.jersey_number,
+    s.period,
+    SUM(s.end_seconds - s.start_seconds) AS period_seconds,
+    ROUND(SUM(s.end_seconds - s.start_seconds) / 60.0, 2) AS period_minutes
+FROM shifts s
+JOIN roster r ON s.player_id = r.player_id
+WHERE s.game_id = ?
+GROUP BY r.player_id, s.period
+ORDER BY s.period, period_seconds DESC;
+```
+
+### Total Playing Time by Player (Games with Specific Tag)
+```sql
+SELECT
+    r.player_name,
+    r.jersey_number,
+    SUM(s.end_seconds - s.start_seconds) AS total_seconds,
+    ROUND(SUM(s.end_seconds - s.start_seconds) / 60.0, 2) AS total_minutes
+FROM shifts s
+JOIN roster r ON s.player_id = r.player_id
+JOIN games g ON s.game_id = g.game_id
+JOIN game_tag_mapping gtm ON g.game_id = gtm.game_id
+JOIN game_tags gt ON gtm.tag_id = gt.tag_id
+WHERE gt.tag_name = 'league'
+GROUP BY r.player_id
+ORDER BY total_seconds DESC;
 ```
 
 ---
