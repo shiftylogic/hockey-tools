@@ -95,37 +95,42 @@ Timestamp: Seconds since beginning of video (with decimal precision)
 3.1 TAG TYPE DEFINITIONS
 
 TAG: goal
-Fields: score:{scorer}|assists:{p1,p2}|other:{p3,p4,...}
-Requirements:
-  - Total players on ice: 3 to 6
+Fields: score:{scorer}|assists:{p1,p2}
+Notes:
+  - Total players on ice: 3 to 6 (calculated from current roster)
   - scorer: exactly 1 player
   - assists: 0 to 2 players (comma-separated)
-  - other: remaining players to reach minimum 3, maximum 6 (comma-separated)
+  - "other" players are extrapolated from start/change logs
 Example Lines:
-  1234.5|goal|score:27|assists:19,14|other:5,7,22
-  2345.0|goal|score:91|other:10,12,55
-  3456.7|goal|score:11|other:23,44,71,77
+  1234.5|goal|score:27|assists:19,14
+  2345.0|goal|score:91
+  3456.7|goal|score:11|assists:23,44
 
 TAG: penalty
-Fields: player:{number}|length:{mm}|type:{penalty_type}
+Fields: player:{number}|category:{minor|major|match|misconduct|game_misconduct}|type:{penalty_type}
 Notes:
-  - Length input: 2, 5, or 10 (minutes)
+  - Category determines length: minor=2min, major=5min, match=5min, misconduct=10min, game_misconduct=10min
   - Type: auto-complete from common penalty types
 Example Lines:
-  4567.1|penalty|player:44|length:2|type:hooking
-  5678.9|penalty|player:27|length:5|type:fighting
+  4567.1|penalty|player:44|category:minor|type:hooking
+  5678.9|penalty|player:27|category:major|type:fighting
 
 TAG: shot
-Fields: player:{number}|outcome:{missed|saved|blocked}
+Fields: player:{number}|outcome:{missed|saved|blocked}|zone:{1-8}
+Notes:
+  - Zone: 1=outside_north_east, 2=outside_north_west, 3=east_outer_slot, 4=west_outer_slot, 5=inner_slot, 6=center_point, 7=east_point, 8=west_point
 Example Lines:
-  6789.0|shot|player:8|outcome:missed
-  7890.1|shot|player:29|outcome:saved
-  8901.2|shot|player:19|outcome:blocked
+  6789.0|shot|player:8|outcome:missed|zone:5
+  7890.1|shot|player:29|outcome:saved|zone:6
+  8901.2|shot|player:19|outcome:blocked|zone:3
 
 TAG: block
-Fields: player:{number}
+Fields: player:{number}|zone:{1-8}
+Notes:
+  - Zone: 1=outside_north_east, 2=outside_north_west, 3=east_outer_slot, 4=west_outer_slot, 5=inner_slot, 6=center_point, 7=east_point, 8=west_point
 Example Lines:
-  9012.3|block|player:22
+  9012.3|block|player:22|zone:5
+  10123.4|block|player:18|zone:3
 
 TAG: change
 Fields: out:{number}|incoming:{number}
@@ -133,21 +138,23 @@ Example Lines:
   10123.4|change|out:18|incoming:29
 
 TAG: pass
-Fields: from:{number}|to:{number}|success:{success|off-target|missed}
+Fields: from:{number}|to:{number}|success:{success|off-target|missed}|zone:{defensive|offensive|neutral}
 Example Lines:
-  11234.5|pass|from:11|to:19|success:success
-  12345.6|pass|from:97|to:12|success:off-target
-  13456.7|pass|from:7|to:91|success:missed
+  11234.5|pass|from:11|to:19|success:success|zone:offensive
+  12345.6|pass|from:97|to:12|success:off-target|zone:neutral
+  13456.7|pass|from:7|to:91|success:missed|zone:defensive
 
 TAG: takeaway
-Fields: player:{number}
+Fields: player:{number}|zone:{defensive|offensive|neutral}
 Example Lines:
-  14567.8|takeaway|player:7
+  14567.8|takeaway|player:7|zone:defensive
+  15678.9|takeaway|player:27|zone:offensive
 
 TAG: giveaway
-Fields: player:{number}
+Fields: player:{number}|zone:{defensive|offensive|neutral}
 Example Lines:
-  15678.9|giveaway|player:27
+  15678.9|giveaway|player:27|zone:defensive
+  16789.0|giveaway|player:91|zone:neutral
 
 TAG: save
 Fields: (none - assumes current goalie)
@@ -180,6 +187,15 @@ Example Lines:
   20000.0|faceoff|player:11|win:y
   20005.5|faceoff|player:29|win:n
 
+TAG: against
+Fields: zone:{1-8}|note:{optional description}
+Notes:
+  - Zone: 1=outside_north_east, 2=outside_north_west, 3=east_outer_slot, 4=west_outer_slot, 5=inner_slot, 6=center_point, 7=east_point, 8=west_point
+  - Players on ice are automatically derived from current roster state
+Example Lines:
+  30000.0|against|zone:5
+  30005.5|against|zone:6|note:bad change
+
 --------------------------------------------------------------------------------
 4. IMPLEMENTATION ARCHITECTURE
 --------------------------------------------------------------------------------
@@ -199,28 +215,31 @@ mp.input features utilized:
 --------------------------------------------------------------------------------
 
 5.1 GOAL TAG
-  1. Enter "goal" (auto-complete available)
-  2. Enter jersey number of goal scorer
-  3. Enter jersey number of 1st assist (Enter to skip)
-  4. Enter jersey number of 2nd assist (Enter to skip)
-  5. Enter jersey numbers of other players on ice (Enter after each)
-  6. Enter on empty line to finish
-  Validation: Total players must be 3-6
+   1. Enter "goal" (auto-complete available)
+   2. Enter jersey number of goal scorer
+   3. Enter jersey number of 1st assist (Enter to skip)
+   4. Enter jersey number of 2nd assist (Enter to skip)
+   5. Enter on empty line to finish
+   Validation: Maximum 2 assists allowed
+   Note: "other" players are automatically calculated from current roster state
 
 5.2 PENALTY TAG
-  1. Enter "penalty" (auto-complete available)
-  2. Enter jersey number of penalized player
-  3. Enter penalty length: 2, 5, or 10
-  4. Enter penalty type (auto-complete from common types)
+   1. Enter "penalty" (auto-complete available)
+   2. Enter jersey number of penalized player
+   3. Enter penalty category (minor, major, match, misconduct, game_misconduct)
+   4. Enter penalty type (auto-complete from common types)
+   Note: Length is automatically derived from category
 
 5.3 SHOT TAG
-  1. Enter "shot" (auto-complete available)
-  2. Enter jersey number of shooter
-  3. Enter outcome: missed, saved, or blocked
+   1. Enter "shot" (auto-complete available)
+   2. Enter jersey number of shooter
+   3. Enter outcome: missed, saved, or blocked
+   4. Enter zone: 1-8 (auto-complete available)
 
 5.4 BLOCK TAG
-  1. Enter "block" (auto-complete available)
-  2. Enter jersey number of blocker
+   1. Enter "block" (auto-complete available)
+   2. Enter jersey number of blocker
+   3. Enter zone: 1-8 (auto-complete available)
 
 5.5 CHANGE TAG
   1. Enter "change" (auto-complete available)
@@ -228,18 +247,21 @@ mp.input features utilized:
   3. Enter jersey number of player entering ice
 
 5.6 PASS TAG
-  1. Enter "pass" (auto-complete available)
-  2. Enter jersey number of passer
-  3. Enter jersey number of target receiver
-  4. Enter outcome: success, off-target, or missed
+   1. Enter "pass" (auto-complete available)
+   2. Enter jersey number of passer
+   3. Enter jersey number of target receiver
+   4. Enter outcome: success, off-target, or missed
+   5. Enter zone: defensive, offensive, or neutral (auto-complete)
 
 5.7 TAKEAWAY TAG
-  1. Enter "takeaway" (auto-complete available)
-  2. Enter jersey number of player who took the puck
+   1. Enter "takeaway" (auto-complete available)
+   2. Enter jersey number of player who took the puck
+   3. Enter zone: defensive, offensive, or neutral (auto-complete)
 
 5.8 GIVEAWAY TAG
-  1. Enter "giveaway" (auto-complete available)
-  2. Enter jersey number of player who lost the puck
+   1. Enter "giveaway" (auto-complete available)
+   2. Enter jersey number of player who lost the puck
+   3. Enter zone: defensive, offensive, or neutral (auto-complete)
 
 5.9 SAVE TAG
    1. Enter "save" (auto-complete available)
@@ -256,9 +278,14 @@ mp.input features utilized:
   2. No additional fields - submits immediately
 
 5.12 FACEOFF TAG
-  1. Enter "faceoff" (auto-complete available)
-  2. Enter jersey number of player taking faceoff
-  3. Enter outcome: y/n
+   1. Enter "faceoff" (auto-complete available)
+   2. Enter jersey number of player taking faceoff
+   3. Enter outcome: y/n
+
+5.13 AGAINST TAG
+   1. Enter "against" (auto-complete available)
+   2. Enter zone: 1-8 (auto-complete available)
+   3. Enter note (optional, Enter to skip)
 
 --------------------------------------------------------------------------------
 6. AUTO-COMPLETE BEHAVIOR
@@ -273,11 +300,20 @@ mp.input features utilized:
   - Validates against configured player_map
 
 6.3 PENALTY TYPE AUTO-COMPLETE
-  - Filters from common penalty types list:
-    hooking, holding, tripping, interference, slashing,
-    high-sticking, cross-checking, fighting, delay of game,
-    too many men, roughing, boarding, charging, elbowing,
-    kneeing, butt-ending, spearing, throwing equipment
+   - Filters from common penalty types list:
+     hooking, holding, tripping, interference, slashing,
+     high-sticking, cross-checking, fighting, delay of game,
+     too many men, roughing, boarding, charging, elbowing,
+     kneeing, butt-ending, spearing, throwing equipment
+
+6.4 PENALTY CATEGORY AUTO-COMPLETE
+   - Filters from category list: minor, major, match, misconduct, game_misconduct
+
+6.5 ZONE AUTO-COMPLETE (SHOT/BLOCK)
+   - Filters from numeric zones 1-8
+
+6.6 ZONE AUTO-COMPLETE (PASS/TAKEAWAY/GIVEAWAY)
+   - Filters from text zones: defensive, offensive, neutral
 
 --------------------------------------------------------------------------------
 7. OSD MESSAGES
@@ -291,18 +327,34 @@ Uses mp.osd_message for status updates:
 
 7.1 TAG SUMMARY FORMATS
 
-  Goal:      "GOAL: #27 J. Thompson (A: #19 Ri. Breckterfield, #8 C. Poon)"
-  Penalty:   "PENALTY: #97 Ro. Breckterfield - 2 min hooking"
-  Shot:      "SHOT: #8 C. Poon - missed"
-  Block:     "BLOCK: #24 R. Latham"
-  Change:    "OUT: #18 L. Bacon  |  IN: #22 V. Han"
-  Pass:      "PASS: #11 L. Draisaitl -> #97 Ro. Breckterfield (success)"
-  Takeaway:  "TAKEAWAY: #7 K. Garver"
-  Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins"
-  Save:      "SAVE"
-  Start:     "4-line centered summary showing period, goalie, defensemen, and forwards"
-  Whistle:   "WHISTLE: Stoppage" or "WHISTLE: Stoppage - offside"
-  Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"
+   Goal:      "GOAL: #27 J. Thompson (A: #19 Ri. Breckterfield, #8 C. Poon)"
+   Penalty:   "PENALTY: #97 Ro. Breckterfield - 2 min hooking (minor)"
+   Shot:      "SHOT: #8 C. Poon - missed (zone 5)"
+   Block:     "BLOCK: #24 R. Latham (zone 3)"
+   Change:    "OUT: #18 L. Bacon  |  IN: #22 V. Han"
+   Pass:      "PASS: #11 L. Draisaitl -> #97 Ro. Breckterfield (success, neutral)"
+   Takeaway:  "TAKEAWAY: #7 K. Garver (offensive)"
+   Giveaway:  "GIVEAWAY: #91 R. Nugent-Hopkins (defensive)"
+   Save:      "SAVE"
+   Whistle:   "WHISTLE: Stoppage" or "WHISTLE: Stoppage - offside"
+   Faceoff:   "FACEOFF: #97 Ro. Breckterfield WON"
+   Against:   "AGAINST (zone 5)" or "AGAINST (zone 6) - bad change"
+
+7.2 CURRENT ROSTER DISPLAY
+
+   Automatically shown when entering tag mode (along with ">> TAG MODE <<").
+   Displayed along the bottom of the screen in large font.
+
+   Format:
+   G: #25 GoalieName | D: #4 Name1, #5 Name2 | F: #10 Name3, #11 Name4, #91 Name5
+
+   Example:
+   G: #25 Stuart Skinner | D: #4 Viktor LO, #5 Mike Green | F: #10 RN-H, #11 Draisaitl, #91 McDavid
+
+   Notes:
+   - Updates automatically after each "change" tag
+   - Only shows jersey numbers if player not in player_map
+   - Uses short format for names (FirstInitial. LastName)
 
 Player names are formatted as "#<number> <FirstInitial>. <LastName>" when resolved from jersey numbers using player_map.
 

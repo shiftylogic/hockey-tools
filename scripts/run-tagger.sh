@@ -8,7 +8,7 @@
 # CONSTANTS
 #
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_PATH="${SCRIPT_DIR}/../tagger.lua"
+SCRIPT_PATH="${SCRIPT_DIR}/../src/tagger.lua"
 
 
 #

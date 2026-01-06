@@ -122,42 +122,54 @@ end
 -- SECTION 2: CONSTANTS & DATA DEFINITIONS
 -- ============================================================================
 
+local zone_numbers = {"1", "2", "3", "4", "5", "6", "7", "8"}
+local zone_text = {"defensive", "offensive", "neutral"}
+
+local penalty_category_length = {
+    minor = "2",
+    major = "5",
+    match = "5",
+    misconduct = "10",
+    game_misconduct = "10"
+}
+
 local tag_definitions = {
     goal = {
         prompt = "Goal",
-        order = {"scorer", "assists", "other"},
+        order = {"scorer", "assists"},
         fields = {
             scorer = { prompt = "Scorer:", type = "player", required = true },
             assists = { prompt = "Assists (Enter to finish):", type = "player", multi = true,
-                        min_count = 0, max_count = 2 },
-            other = { prompt = "Other players (Enter to finish):", type = "player", multi = true,
-                      min_count = 0, max_count = 4 }
+                        min_count = 0, max_count = 2 }
         },
         validator = "goal_count"
     },
     penalty = {
         prompt = "Penalty",
-        order = {"player", "length", "type"},
+        order = {"player", "category", "type"},
         fields = {
             player = { prompt = "Player:", type = "player", required = true },
-            length = { prompt = "Length (2, 5, or 10):", type = "enum", values = {"2", "5", "10"}, required = true },
+            category = { prompt = "Category (minor/major/match/misconduct/game_misconduct):", type = "enum",
+                        values = {"minor", "major", "match", "misconduct", "game_misconduct"}, required = true },
             type = { prompt = "Type:", type = "autocomplete", source = "penalty_types", required = true }
         }
     },
     shot = {
         prompt = "Shot",
-        order = {"player", "outcome"},
+        order = {"player", "outcome", "zone"},
         fields = {
             player = { prompt = "Shooter:", type = "player", required = true },
             outcome = { prompt = "Outcome (missed/saved/blocked):", type = "enum",
-                        values = {"missed", "saved", "blocked"}, required = true }
+                        values = {"missed", "saved", "blocked"}, required = true },
+            zone = { prompt = "Zone (1-8):", type = "enum", values = zone_numbers, required = true }
         }
     },
     block = {
         prompt = "Block",
-        order = {"player"},
+        order = {"player", "zone"},
         fields = {
-            player = { prompt = "Blocker:", type = "player", required = true }
+            player = { prompt = "Blocker:", type = "player", required = true },
+            zone = { prompt = "Zone (1-8):", type = "enum", values = zone_numbers, required = true }
         }
     },
     change = {
@@ -170,26 +182,32 @@ local tag_definitions = {
     },
     pass = {
         prompt = "Pass",
-        order = {"from", "to", "success"},
+        order = {"from", "to", "success", "zone"},
         fields = {
             from = { prompt = "From:", type = "player", required = true },
             to = { prompt = "To:", type = "player", required = true },
             success = { prompt = "Outcome (success/off-target/missed):", type = "enum",
-                        values = {"success", "off-target", "missed"}, required = true }
+                        values = {"success", "off-target", "missed"}, required = true },
+            zone = { prompt = "Zone (defensive/offensive/neutral):", type = "enum",
+                     values = zone_text, required = true }
         }
     },
     takeaway = {
         prompt = "Takeaway",
-        order = {"player"},
+        order = {"player", "zone"},
         fields = {
-            player = { prompt = "Player:", type = "player", required = true }
+            player = { prompt = "Player:", type = "player", required = true },
+            zone = { prompt = "Zone (defensive/offensive/neutral):", type = "enum",
+                     values = zone_text, required = true }
         }
     },
     giveaway = {
         prompt = "Giveaway",
-        order = {"player"},
+        order = {"player", "zone"},
         fields = {
-            player = { prompt = "Player:", type = "player", required = true }
+            player = { prompt = "Player:", type = "player", required = true },
+            zone = { prompt = "Zone (defensive/offensive/neutral):", type = "enum",
+                     values = zone_text, required = true }
         }
     },
     save = {
@@ -228,6 +246,14 @@ local tag_definitions = {
             win = { prompt = "Win (y/n):", type = "yn", required = true }
         }
     },
+    against = {
+        prompt = "Against",
+        order = {"zone", "note"},
+        fields = {
+            zone = { prompt = "Zone (1-8):", type = "enum", values = zone_numbers, required = true },
+            note = { prompt = "Note (optional):", type = "text", required = false }
+        }
+    },
 }
 
 local tag_types_list = {}
@@ -243,6 +269,17 @@ local penalty_types_list = {
     "kneeing", "butt-ending", "spearing", "throwing equipment"
 }
 
+local zone_numbers = {"1", "2", "3", "4", "5", "6", "7", "8"}
+local zone_text = {"defensive", "offensive", "neutral"}
+
+local penalty_category_length = {
+    minor = "2",
+    major = "5",
+    match = "5",
+    misconduct = "10",
+    game_misconduct = "10"
+}
+
 
 -- ============================================================================
 -- SECTION 3: STATE MANAGEMENT
@@ -256,6 +293,13 @@ local TaggerState = {
     current_field = nil,
     field_order = {},
     field_finished = {}   -- tracks which fields user has finished (both multi and optional single)
+}
+
+local RosterState = {
+    goalie = nil,         -- current goalie jersey number
+    defense = {},         -- set of defense jersey numbers on ice
+    forwards = {},        -- set of forward jersey numbers on ice
+    all_on_ice = {}       -- combined set of all skaters on ice (for quick lookup)
 }
 
 local function reset_state()
@@ -286,6 +330,111 @@ end
 local function is_valid_player(num)
     num = tonumber(num)
     return num ~= nil and config.player_map[num] ~= nil
+end
+
+local function roster_add_player(num)
+    num = tonumber(num)
+    if not num then return end
+    RosterState.all_on_ice[num] = true
+end
+
+local function roster_remove_player(num)
+    num = tonumber(num)
+    if not num then return end
+    RosterState.all_on_ice[num] = nil
+end
+
+local function roster_is_on_ice(num)
+    num = tonumber(num)
+    if not num then return false end
+    return RosterState.all_on_ice[num] == true
+end
+
+local function roster_get_other_players(exclude_list)
+    local others = {}
+    for num, _ in pairs(RosterState.all_on_ice) do
+        local excluded = false
+        if exclude_list then
+            for _, ex in ipairs(exclude_list) do
+                if tonumber(ex) == num then
+                    excluded = true
+                    break
+                end
+            end
+        end
+        if not excluded then
+            table.insert(others, tostring(num))
+        end
+    end
+    return others
+end
+
+local function roster_format_osd()
+    local parts = {}
+
+    if RosterState.goalie then
+        table.insert(parts, "G: #" .. RosterState.goalie .. " " .. player_name(RosterState.goalie))
+    else
+        table.insert(parts, "G: --")
+    end
+
+    local defense_list = {}
+    for num, _ in pairs(RosterState.defense) do
+        table.insert(defense_list, "#" .. num)
+    end
+    if #defense_list > 0 then
+        table.insert(parts, "D: " .. table.concat(defense_list, ", "))
+    else
+        table.insert(parts, "D: --")
+    end
+
+    local forwards_list = {}
+    for num, _ in pairs(RosterState.forwards) do
+        table.insert(forwards_list, "#" .. num)
+    end
+    if #forwards_list > 0 then
+        table.insert(parts, "F: " .. table.concat(forwards_list, ", "))
+    else
+        table.insert(parts, "F: --")
+    end
+
+    return table.concat(parts, " | ")
+end
+
+local function roster_show_osd()
+    local msg = roster_format_osd()
+    mp.osd_message(msg, 10)
+end
+
+local function roster_clear()
+    RosterState.goalie = nil
+    RosterState.defense = {}
+    RosterState.forwards = {}
+    RosterState.all_on_ice = {}
+end
+
+local function roster_set_lineup(goalie, defense_list, forwards_list)
+    roster_clear()
+    RosterState.goalie = tonumber(goalie)
+    for _, num in ipairs(defense_list or {}) do
+        num = tonumber(num)
+        if num then
+            RosterState.defense[num] = true
+            roster_add_player(num)
+        end
+    end
+    for _, num in ipairs(forwards_list or {}) do
+        num = tonumber(num)
+        if num then
+            RosterState.forwards[num] = true
+            roster_add_player(num)
+        end
+    end
+end
+
+local function roster_change(out_num, in_num)
+    roster_remove_player(out_num)
+    roster_add_player(in_num)
 end
 
 local function complete_factory(source_type, source)
@@ -416,36 +565,35 @@ local function format_for_log(tag_type, data)
             for _, v in ipairs(data.assists) do if v and v ~= "" then table.insert(assists_list, v) end end
         end
         if #assists_list > 0 then line = line .. "|assists:" .. table.concat(assists_list, ",") end
-        if data.other and #data.other > 0 then
-            local other_list = {}
-            for _, v in ipairs(data.other) do if v and v ~= "" then table.insert(other_list, v) end end
-            line = line .. "|other:" .. table.concat(other_list, ",")
-        end
 
     elseif tag_type == "penalty" then
-        line = string.format("penalty|player:%s|length:%s|type:%s",
-                             data.player or "", data.length or "", data.type or "")
+        local length = penalty_category_length[data.category] or ""
+        line = string.format("penalty|player:%s|category:%s|type:%s",
+                             data.player or "", data.category or "", data.type or "")
 
     elseif tag_type == "shot" then
-        line = string.format("shot|player:%s|outcome:%s",
-                             data.player or "", data.outcome or "")
+        line = string.format("shot|player:%s|outcome:%s|zone:%s",
+                             data.player or "", data.outcome or "", data.zone or "")
 
     elseif tag_type == "block" then
-        line = "block|player:" .. (data.player or "")
+        line = string.format("block|player:%s|zone:%s",
+                             data.player or "", data.zone or "")
 
     elseif tag_type == "change" then
         line = string.format("change|out:%s|incoming:%s",
                              data.out or "", data.incoming or "")
 
     elseif tag_type == "pass" then
-        line = string.format("pass|from:%s|to:%s|success:%s",
-                             data.from or "", data.to or "", data.success or "")
+        line = string.format("pass|from:%s|to:%s|success:%s|zone:%s",
+                             data.from or "", data.to or "", data.success or "", data.zone or "")
 
     elseif tag_type == "takeaway" then
-        line = "takeaway|player:" .. (data.player or "")
+        line = string.format("takeaway|player:%s|zone:%s",
+                             data.player or "", data.zone or "")
 
     elseif tag_type == "giveaway" then
-        line = "giveaway|player:" .. (data.player or "")
+        line = string.format("giveaway|player:%s|zone:%s",
+                             data.player or "", data.zone or "")
 
     elseif tag_type == "save" then
         line = "save"
@@ -472,6 +620,12 @@ local function format_for_log(tag_type, data)
     elseif tag_type == "faceoff" then
         line = string.format("faceoff|player:%s|win:%s",
                              data.player or "", data.win or "")
+
+    elseif tag_type == "against" then
+        line = "against|zone:" .. (data.zone or "")
+        if data.note and data.note ~= "" then
+            line = line .. "|note:" .. data.note
+        end
     end
 
     return line
@@ -490,62 +644,33 @@ local function format_for_display(tag_type, data)
         return msg
 
     elseif tag_type == "penalty" then
-        return "PENALTY: " .. player_name(data.player) .. " - " .. data.length .. " min " .. data.type
+        local length = penalty_category_length[data.category] or ""
+        return "PENALTY: " .. player_name(data.player) .. " - " .. length .. " min " .. data.type .. " (" .. data.category .. ")"
 
     elseif tag_type == "shot" then
-        return "SHOT: " .. player_name(data.player) .. " - " .. data.outcome
+        return "SHOT: " .. player_name(data.player) .. " - " .. data.outcome .. " (zone " .. data.zone .. ")"
 
     elseif tag_type == "block" then
-        return "BLOCK: " .. player_name(data.player)
+        return "BLOCK: " .. player_name(data.player) .. " (zone " .. data.zone .. ")"
 
     elseif tag_type == "change" then
         return "OUT: " .. player_name(data.out) .. "  |  IN: " .. player_name(data.incoming)
 
     elseif tag_type == "pass" then
-        return "PASS: " .. player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ")"
+        return "PASS: " .. player_name(data.from) .. " -> " .. player_name(data.to) .. " (" .. data.success .. ", " .. data.zone .. ")"
 
     elseif tag_type == "takeaway" then
-        return "TAKEAWAY: " .. player_name(data.player)
+        return "TAKEAWAY: " .. player_name(data.player) .. " (" .. data.zone .. ")"
 
     elseif tag_type == "giveaway" then
-        return "GIVEAWAY: " .. player_name(data.player)
+        return "GIVEAWAY: " .. player_name(data.player) .. " (" .. data.zone .. ")"
 
     elseif tag_type == "save" then
         return "SAVE"
 
     elseif tag_type == "start" then
-        local period = data.period or "?"
-        local period_ordinal = period:upper() == "OT" and "Overtime"
-                            or period .. (period == "1" and "st" or period == "2" and "nd" or "rd")
-        local defense_str = ""
-        if data.defense and #data.defense > 0 then
-            local names = {}
-            for _, num in ipairs(data.defense) do table.insert(names, player_name(num)) end
-            defense_str = table.concat(names, " | ")
-        end
-        local forwards_str = ""
-        if data.forwards and #data.forwards > 0 then
-            local names = {}
-            for _, num in ipairs(data.forwards) do table.insert(names, player_name(num)) end
-            forwards_str = table.concat(names, " | ")
-        end
-
-        local overlay = mp.create_osd_overlay("ass-events")
-        if overlay then
-            local lines = {
-                "Start of " .. period_ordinal .. " Period",
-                player_name(data.goalie),
-                defense_str,
-                forwards_str
-            }
-            local ass = "{\\an5\\fs28\\bord2\\shad1\\c&H00EEFF00&\\3c&H000000&}"
-            ass = ass .. table.concat(lines, "\\N")
-            overlay.data = ass
-            overlay:update()
-            mp.add_timeout(5, function()
-                overlay:remove()
-            end)
-        end
+        roster_set_lineup(data.goalie, data.defense, data.forwards)
+        roster_show_osd()
         return nil
 
     elseif tag_type == "whistle" then
@@ -557,6 +682,13 @@ local function format_for_display(tag_type, data)
 
     elseif tag_type == "faceoff" then
         return "FACEOFF: " .. player_name(data.player) .. (data.win == "y" and " WON" or " LOST")
+
+    elseif tag_type == "against" then
+        local msg = "AGAINST (zone " .. data.zone .. ")"
+        if data.note and data.note ~= "" then
+            msg = msg .. " - " .. data.note
+        end
+        return msg
     end
 
     return nil
@@ -569,16 +701,16 @@ end
 
 local validators = {
     goal_count = function(data)
-        local count = 0
-        if data.scorer and data.scorer ~= "" then count = count + 1 end
+        if not data.scorer or data.scorer == "" then
+            return "Scorer is required"
+        end
+
+        local assist_count = 0
         if data.assists then
-            for _, v in ipairs(data.assists) do if v and v ~= "" then count = count + 1 end end
+            for _, v in ipairs(data.assists) do if v and v ~= "" then assist_count = assist_count + 1 end end
         end
-        if data.other then
-            for _, v in ipairs(data.other) do if v and v ~= "" then count = count + 1 end end
-        end
-        if count < 3 or count > 6 then
-            return "Goal requires 3-6 players (got " .. count .. ")"
+        if assist_count > 2 then
+            return "Maximum 2 assists allowed (got " .. assist_count .. ")"
         end
         return nil
     end,
@@ -816,6 +948,12 @@ local function do_next_field()
         line = line .. "|" .. tag_line
 
         if write_log_line(line) then
+            if TaggerState.tag_type == "change" then
+                roster_change(TaggerState.data.out, TaggerState.data.incoming)
+            elseif TaggerState.tag_type == "start" then
+                roster_set_lineup(TaggerState.data.goalie, TaggerState.data.defense, TaggerState.data.forwards)
+            end
+
             local display = format_for_display(TaggerState.tag_type, data)
             if display then
                 show_osd(display, 5)
@@ -883,6 +1021,12 @@ local function do_next_field()
             if field_def.multi then
                 if not data[field_name] then data[field_name] = {} end
                 table.insert(data[field_name], value)
+
+                local count = 0
+                for _, v in ipairs(data[field_name]) do if v and v ~= "" then count = count + 1 end end
+                if field_def.max_count and count >= field_def.max_count then
+                    TaggerState.field_finished[field_name] = true
+                end
             else
                 data[field_name] = value
                 TaggerState.field_finished[field_name] = true
@@ -903,7 +1047,7 @@ local function start_tagging()
     if not vid then return end
 
     mp.set_property_bool("pause", true)
-    show_osd(">> TAG MODE <<", 10)
+    roster_show_osd()
     TaggerState.mode = "selecting_type"
 
     input.get({
