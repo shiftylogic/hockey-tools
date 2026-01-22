@@ -36,6 +36,8 @@ clean_passing_std="./.tmp_ingest/passing_std.csv"
 clean_passing_tourn="./.tmp_ingest/passing_tourn.csv"
 clean_practices="./.tmp_ingest/practices.csv"
 clean_dryland="./.tmp_ingest/dryland.csv"
+clean_drills1="./.tmp_ingest/drills1.csv"
+clean_drills2="./.tmp_ingest/drills2.csv"
 
 tr -d '\r' < "$DATA_DIR/roster.csv" > "$clean_roster"
 tr -d '\r' < "$DATA_DIR/Games-Games.csv" > "$clean_games"
@@ -44,6 +46,8 @@ tr -d '\r' < "$DATA_DIR/Goals Against-Against.csv" > "$clean_goals_against"
 tr -d '\r' < "$DATA_DIR/Penalties-Table 1.csv" > "$clean_penalties"
 tr -d '\r' < "$DATA_DIR/Practices-Practices.csv" > "$clean_practices"
 tr -d '\r' < "$DATA_DIR/Practices-Dryland   Classroom.csv" > "$clean_dryland"
+tr -d '\r' < "$DATA_DIR/Practices-Drill Selection (Practices 1 - 44).csv" > "$clean_drills1"
+tr -d '\r' < "$DATA_DIR/Practices-Drill Selection (Practice 45 - ?).csv" > "$clean_drills2"
 
 # Concatenate standard passing files with forced newlines to prevent merging last/first lines
 {
@@ -84,6 +88,8 @@ DROP TABLE IF EXISTS game_tags;
 DROP TABLE IF EXISTS game_roster;
 DROP TABLE IF EXISTS absences;
 DROP TABLE IF EXISTS attendance;
+DROP TABLE IF EXISTS practice_drills;
+DROP TABLE IF EXISTS drills;
 DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS roster;
 DROP TABLE IF EXISTS penalty_types;
@@ -93,6 +99,18 @@ CREATE TABLE events (
     event_id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_type TEXT NOT NULL CHECK (event_type IN ('practice', 'dryland', 'classroom')),
     event_date TEXT NOT NULL
+);
+
+CREATE TABLE drills (
+    drill_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    drill_name TEXT NOT NULL UNIQUE,
+    drill_link TEXT
+);
+
+CREATE TABLE practice_drills (
+    event_id INTEGER NOT NULL REFERENCES events(event_id),
+    drill_id INTEGER NOT NULL REFERENCES drills(drill_id),
+    PRIMARY KEY (event_id, drill_id)
 );
 
 CREATE TABLE attendance (
@@ -649,6 +667,146 @@ JOIN events e ON e.event_date = dr.Date AND e.event_type = (CASE WHEN dr.Type = 
 WHERE dr.code != '+' AND dr.code IS NOT NULL AND dr.code != '';
 
 
+-- H. Drills & Practice Mapping
+-- ------------------------
+-- 1. Ingest Unique Drills
+CREATE TEMP TABLE imp_drill_names (name);
+-- Extract names from both files, skipping first 2 rows
+.mode csv
+.import "|tail -n +3 '$clean_drills1' | cut -d, -f1" imp_drill_names
+.import "|tail -n +3 '$clean_drills2' | cut -d, -f1" imp_drill_names
+
+INSERT OR IGNORE INTO drills (drill_name)
+SELECT DISTINCT name FROM imp_drill_names WHERE name IS NOT NULL AND name != '';
+
+-- 2. Map Drills to Practices (Unpivot)
+-- We'll use a temporary mapping table and unpivot the wide CSVs.
+-- This is done by creating a temp table for each file and using a CTE to unpivot.
+
+-- File 1: Practices 1-44
+CREATE TEMP TABLE imp_drills_1 (Name, Cat, 
+    p1, p2, p3, p4, p5, p6, p7, p8, p9, p10,
+    p11, p12, p13, p14, p15, p16, p17, p18, p19, p20,
+    p21, p22, p23, p24, p25, p26, p27, p28, p29, p30,
+    p31, p32, p33, p34, p35, p36, p37, p38, p39, p40,
+    p41, p42, p43, p44);
+.import "$clean_drills1" imp_drills_1
+DELETE FROM imp_drills_1 WHERE Name IS NULL OR Name = '' OR p1 = '1'; -- Header rows
+
+INSERT INTO practice_drills (event_id, drill_id)
+SELECT e.event_id, d.drill_id
+FROM (
+    SELECT Name, 1 as pid, p1 as val FROM imp_drills_1 UNION ALL
+    SELECT Name, 2, p2 FROM imp_drills_1 UNION ALL
+    SELECT Name, 3, p3 FROM imp_drills_1 UNION ALL
+    SELECT Name, 4, p4 FROM imp_drills_1 UNION ALL
+    SELECT Name, 5, p5 FROM imp_drills_1 UNION ALL
+    SELECT Name, 6, p6 FROM imp_drills_1 UNION ALL
+    SELECT Name, 7, p7 FROM imp_drills_1 UNION ALL
+    SELECT Name, 8, p8 FROM imp_drills_1 UNION ALL
+    SELECT Name, 9, p9 FROM imp_drills_1 UNION ALL
+    SELECT Name, 10, p10 FROM imp_drills_1 UNION ALL
+    SELECT Name, 11, p11 FROM imp_drills_1 UNION ALL
+    SELECT Name, 12, p12 FROM imp_drills_1 UNION ALL
+    SELECT Name, 13, p13 FROM imp_drills_1 UNION ALL
+    SELECT Name, 14, p14 FROM imp_drills_1 UNION ALL
+    SELECT Name, 15, p15 FROM imp_drills_1 UNION ALL
+    SELECT Name, 16, p16 FROM imp_drills_1 UNION ALL
+    SELECT Name, 17, p17 FROM imp_drills_1 UNION ALL
+    SELECT Name, 18, p18 FROM imp_drills_1 UNION ALL
+    SELECT Name, 19, p19 FROM imp_drills_1 UNION ALL
+    SELECT Name, 20, p20 FROM imp_drills_1 UNION ALL
+    SELECT Name, 21, p21 FROM imp_drills_1 UNION ALL
+    SELECT Name, 22, p22 FROM imp_drills_1 UNION ALL
+    SELECT Name, 23, p23 FROM imp_drills_1 UNION ALL
+    SELECT Name, 24, p24 FROM imp_drills_1 UNION ALL
+    SELECT Name, 25, p25 FROM imp_drills_1 UNION ALL
+    SELECT Name, 26, p26 FROM imp_drills_1 UNION ALL
+    SELECT Name, 27, p27 FROM imp_drills_1 UNION ALL
+    SELECT Name, 28, p28 FROM imp_drills_1 UNION ALL
+    SELECT Name, 29, p29 FROM imp_drills_1 UNION ALL
+    SELECT Name, 30, p30 FROM imp_drills_1 UNION ALL
+    SELECT Name, 31, p31 FROM imp_drills_1 UNION ALL
+    SELECT Name, 32, p32 FROM imp_drills_1 UNION ALL
+    SELECT Name, 33, p33 FROM imp_drills_1 UNION ALL
+    SELECT Name, 34, p34 FROM imp_drills_1 UNION ALL
+    SELECT Name, 35, p35 FROM imp_drills_1 UNION ALL
+    SELECT Name, 36, p36 FROM imp_drills_1 UNION ALL
+    SELECT Name, 37, p37 FROM imp_drills_1 UNION ALL
+    SELECT Name, 38, p38 FROM imp_drills_1 UNION ALL
+    SELECT Name, 39, p39 FROM imp_drills_1 UNION ALL
+    SELECT Name, 40, p40 FROM imp_drills_1 UNION ALL
+    SELECT Name, 41, p41 FROM imp_drills_1 UNION ALL
+    SELECT Name, 42, p42 FROM imp_drills_1 UNION ALL
+    SELECT Name, 43, p43 FROM imp_drills_1 UNION ALL
+    SELECT Name, 44, p44 FROM imp_drills_1
+) m
+JOIN drills d ON d.drill_name = m.Name
+JOIN imp_practices ip ON CAST(ip.No AS INTEGER) = m.pid
+JOIN events e ON e.event_date = ip.Date AND e.event_type = 'practice'
+WHERE m.val = 'TRUE';
+
+-- File 2: Practices 45-87
+CREATE TEMP TABLE imp_drills_2 (Name, Cat, X,
+    p45, p46, p47, p48, p49, p50, p51, p52, p53, p54, p55, p56, p57, p58, p59, p60,
+    p61, p62, p63, p64, p65, p66, p67, p68, p69, p70, p71, p72, p73, p74, p75, p76, p77, p78, p79, p80,
+    p81, p82, p83, p84, p85, p86, p87);
+.import "$clean_drills2" imp_drills_2
+DELETE FROM imp_drills_2 WHERE Name IS NULL OR Name = '' OR p45 = '45';
+
+INSERT INTO practice_drills (event_id, drill_id)
+SELECT e.event_id, d.drill_id
+FROM (
+    SELECT Name, 45 as pid, p45 as val FROM imp_drills_2 UNION ALL
+    SELECT Name, 46, p46 FROM imp_drills_2 UNION ALL
+    SELECT Name, 47, p47 FROM imp_drills_2 UNION ALL
+    SELECT Name, 48, p48 FROM imp_drills_2 UNION ALL
+    SELECT Name, 49, p49 FROM imp_drills_2 UNION ALL
+    SELECT Name, 50, p50 FROM imp_drills_2 UNION ALL
+    SELECT Name, 51, p51 FROM imp_drills_2 UNION ALL
+    SELECT Name, 52, p52 FROM imp_drills_2 UNION ALL
+    SELECT Name, 53, p53 FROM imp_drills_2 UNION ALL
+    SELECT Name, 54, p54 FROM imp_drills_2 UNION ALL
+    SELECT Name, 55, p55 FROM imp_drills_2 UNION ALL
+    SELECT Name, 56, p56 FROM imp_drills_2 UNION ALL
+    SELECT Name, 57, p57 FROM imp_drills_2 UNION ALL
+    SELECT Name, 58, p58 FROM imp_drills_2 UNION ALL
+    SELECT Name, 59, p59 FROM imp_drills_2 UNION ALL
+    SELECT Name, 60, p60 FROM imp_drills_2 UNION ALL
+    SELECT Name, 61, p61 FROM imp_drills_2 UNION ALL
+    SELECT Name, 62, p62 FROM imp_drills_2 UNION ALL
+    SELECT Name, 63, p63 FROM imp_drills_2 UNION ALL
+    SELECT Name, 64, p64 FROM imp_drills_2 UNION ALL
+    SELECT Name, 65, p65 FROM imp_drills_2 UNION ALL
+    SELECT Name, 66, p66 FROM imp_drills_2 UNION ALL
+    SELECT Name, 67, p67 FROM imp_drills_2 UNION ALL
+    SELECT Name, 68, p68 FROM imp_drills_2 UNION ALL
+    SELECT Name, 69, p69 FROM imp_drills_2 UNION ALL
+    SELECT Name, 70, p70 FROM imp_drills_2 UNION ALL
+    SELECT Name, 71, p71 FROM imp_drills_2 UNION ALL
+    SELECT Name, 72, p72 FROM imp_drills_2 UNION ALL
+    SELECT Name, 73, p73 FROM imp_drills_2 UNION ALL
+    SELECT Name, 74, p74 FROM imp_drills_2 UNION ALL
+    SELECT Name, 75, p75 FROM imp_drills_2 UNION ALL
+    SELECT Name, 76, p76 FROM imp_drills_2 UNION ALL
+    SELECT Name, 77, p77 FROM imp_drills_2 UNION ALL
+    SELECT Name, 78, p78 FROM imp_drills_2 UNION ALL
+    SELECT Name, 79, p79 FROM imp_drills_2 UNION ALL
+    SELECT Name, 80, p80 FROM imp_drills_2 UNION ALL
+    SELECT Name, 81, p81 FROM imp_drills_2 UNION ALL
+    SELECT Name, 82, p82 FROM imp_drills_2 UNION ALL
+    SELECT Name, 83, p83 FROM imp_drills_2 UNION ALL
+    SELECT Name, 84, p84 FROM imp_drills_2 UNION ALL
+    SELECT Name, 85, p85 FROM imp_drills_2 UNION ALL
+    SELECT Name, 86, p86 FROM imp_drills_2 UNION ALL
+    SELECT Name, 87, p87 FROM imp_drills_2
+) m
+JOIN drills d ON d.drill_name = m.Name
+JOIN imp_practices ip ON CAST(ip.No AS INTEGER) = m.pid
+JOIN events e ON e.event_date = ip.Date AND e.event_type = 'practice'
+WHERE m.val = 'TRUE';
+
+
 PRAGMA foreign_keys = ON;
 
 SELECT 'Ingestion Complete' as Status;
@@ -660,6 +818,8 @@ SELECT COUNT(*) || ' Passing Stats Loaded' FROM team_passing_stats;
 SELECT COUNT(*) || ' Practice Events Loaded' FROM events;
 SELECT COUNT(*) || ' Attendance Records' FROM attendance;
 SELECT COUNT(*) || ' Absence Records' FROM absences;
+SELECT COUNT(*) || ' Unique Drills Loaded' FROM drills;
+SELECT COUNT(*) || ' Practice-Drill Mappings' FROM practice_drills;
 
 EOF
 
