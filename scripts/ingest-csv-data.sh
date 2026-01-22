@@ -34,12 +34,16 @@ clean_goals_against="./.tmp_ingest/goals_against.csv"
 clean_penalties="./.tmp_ingest/penalties.csv"
 clean_passing_std="./.tmp_ingest/passing_std.csv"
 clean_passing_tourn="./.tmp_ingest/passing_tourn.csv"
+clean_practices="./.tmp_ingest/practices.csv"
+clean_dryland="./.tmp_ingest/dryland.csv"
 
 tr -d '\r' < "$DATA_DIR/roster.csv" > "$clean_roster"
 tr -d '\r' < "$DATA_DIR/Games-Games.csv" > "$clean_games"
 tr -d '\r' < "$DATA_DIR/Goals For-For.csv" > "$clean_goals_for"
 tr -d '\r' < "$DATA_DIR/Goals Against-Against.csv" > "$clean_goals_against"
 tr -d '\r' < "$DATA_DIR/Penalties-Table 1.csv" > "$clean_penalties"
+tr -d '\r' < "$DATA_DIR/Practices-Practices.csv" > "$clean_practices"
+tr -d '\r' < "$DATA_DIR/Practices-Dryland   Classroom.csv" > "$clean_dryland"
 
 # Concatenate standard passing files with forced newlines to prevent merging last/first lines
 {
@@ -78,9 +82,33 @@ DROP TABLE IF EXISTS goals_for;
 DROP TABLE IF EXISTS game_tag_mapping;
 DROP TABLE IF EXISTS game_tags;
 DROP TABLE IF EXISTS game_roster;
+DROP TABLE IF EXISTS absences;
+DROP TABLE IF EXISTS attendance;
+DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS roster;
 DROP TABLE IF EXISTS penalty_types;
 DROP TABLE IF EXISTS games;
+
+CREATE TABLE events (
+    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL CHECK (event_type IN ('practice', 'dryland', 'classroom')),
+    event_date TEXT NOT NULL
+);
+
+CREATE TABLE attendance (
+    event_id INTEGER NOT NULL REFERENCES events(event_id),
+    player_id INTEGER NOT NULL REFERENCES roster(player_id),
+    color TEXT CHECK (color IN ('blue', 'white')), -- Null for dryland/classroom
+    PRIMARY KEY (event_id, player_id)
+);
+
+CREATE TABLE absences (
+    event_id INTEGER NOT NULL REFERENCES events(event_id),
+    player_id INTEGER NOT NULL REFERENCES roster(player_id),
+    absence_type TEXT NOT NULL CHECK (absence_type IN ('excused', 'unexcused', 'injured')),
+    note TEXT,
+    PRIMARY KEY (event_id, player_id)
+);
 
 CREATE TABLE games (
     game_id INTEGER PRIMARY KEY,
@@ -440,6 +468,187 @@ SELECT Game, 3, P3A, P3C FROM imp_pass_tourn WHERE P3A IS NOT NULL AND P3A != ''
 UNION ALL
 SELECT Game, 4, OTA, OTC FROM imp_pass_tourn WHERE OTA IS NOT NULL AND OTA != '-' AND OTA != '';
 
+-- G. Practices & Attendance
+-- ------------------------
+-- 1. On-Ice Practices
+-- Columns: No, Date, g8, g31, x3, d6, d19, d47, d81, d88, d89, x4, f7, f16, f18, f22, f24, f30, f34, f86, f90, f97
+CREATE TEMP TABLE imp_practices (No, Date, g8, g31, x3, d6, d19, d47, d81, d88, d89, x4, f7, f16, f18, f22, f24, f30, f34, f86, f90, f97);
+.import "$clean_practices" imp_practices
+DELETE FROM imp_practices WHERE Date = 'Date' OR Date IS NULL OR Date = '';
+
+-- Remove Cancelled Practices (All players are '-' or empty)
+DELETE FROM imp_practices WHERE
+  (g8  IS NULL OR g8  IN ('','-')) AND (g31 IS NULL OR g31 IN ('','-')) AND
+  (d6  IS NULL OR d6  IN ('','-')) AND (d19 IS NULL OR d19 IN ('','-')) AND
+  (d47 IS NULL OR d47 IN ('','-')) AND (d81 IS NULL OR d81 IN ('','-')) AND
+  (d88 IS NULL OR d88 IN ('','-')) AND (d89 IS NULL OR d89 IN ('','-')) AND
+  (f7  IS NULL OR f7  IN ('','-')) AND (f16 IS NULL OR f16 IN ('','-')) AND
+  (f18 IS NULL OR f18 IN ('','-')) AND (f22 IS NULL OR f22 IN ('','-')) AND
+  (f24 IS NULL OR f24 IN ('','-')) AND (f30 IS NULL OR f30 IN ('','-')) AND
+  (f34 IS NULL OR f34 IN ('','-')) AND (f86 IS NULL OR f86 IN ('','-')) AND
+  (f90 IS NULL OR f90 IN ('','-')) AND (f97 IS NULL OR f97 IN ('','-'));
+
+-- Insert Events (Practices)
+INSERT INTO events (event_type, event_date)
+SELECT 'practice', Date FROM imp_practices;
+
+-- Unpivot & Insert Attendance/Absences
+WITH prac_raw AS (
+    SELECT Date, 8 as jersey, g8 as code FROM imp_practices
+    UNION ALL SELECT Date, 31, g31 FROM imp_practices
+    UNION ALL SELECT Date, 6, d6 FROM imp_practices
+    UNION ALL SELECT Date, 19, d19 FROM imp_practices
+    UNION ALL SELECT Date, 47, d47 FROM imp_practices
+    UNION ALL SELECT Date, 81, d81 FROM imp_practices
+    UNION ALL SELECT Date, 88, d88 FROM imp_practices
+    UNION ALL SELECT Date, 89, d89 FROM imp_practices
+    UNION ALL SELECT Date, 7, f7 FROM imp_practices
+    UNION ALL SELECT Date, 16, f16 FROM imp_practices
+    UNION ALL SELECT Date, 18, f18 FROM imp_practices
+    UNION ALL SELECT Date, 22, f22 FROM imp_practices
+    UNION ALL SELECT Date, 24, f24 FROM imp_practices
+    UNION ALL SELECT Date, 30, f30 FROM imp_practices
+    UNION ALL SELECT Date, 34, f34 FROM imp_practices
+    UNION ALL SELECT Date, 86, f86 FROM imp_practices
+    UNION ALL SELECT Date, 90, f90 FROM imp_practices
+    UNION ALL SELECT Date, 97, f97 FROM imp_practices
+)
+INSERT INTO attendance (event_id, player_id, color)
+SELECT 
+    e.event_id,
+    r.player_id,
+    CASE WHEN pr.code = 'B' THEN 'blue' ELSE 'white' END
+FROM prac_raw pr
+JOIN roster r ON r.jersey_number = pr.jersey
+JOIN events e ON e.event_date = pr.Date AND e.event_type = 'practice'
+WHERE pr.code IN ('B', 'W');
+
+WITH prac_raw AS (
+    SELECT Date, 8 as jersey, g8 as code FROM imp_practices
+    UNION ALL SELECT Date, 31, g31 FROM imp_practices
+    UNION ALL SELECT Date, 6, d6 FROM imp_practices
+    UNION ALL SELECT Date, 19, d19 FROM imp_practices
+    UNION ALL SELECT Date, 47, d47 FROM imp_practices
+    UNION ALL SELECT Date, 81, d81 FROM imp_practices
+    UNION ALL SELECT Date, 88, d88 FROM imp_practices
+    UNION ALL SELECT Date, 89, d89 FROM imp_practices
+    UNION ALL SELECT Date, 7, f7 FROM imp_practices
+    UNION ALL SELECT Date, 16, f16 FROM imp_practices
+    UNION ALL SELECT Date, 18, f18 FROM imp_practices
+    UNION ALL SELECT Date, 22, f22 FROM imp_practices
+    UNION ALL SELECT Date, 24, f24 FROM imp_practices
+    UNION ALL SELECT Date, 30, f30 FROM imp_practices
+    UNION ALL SELECT Date, 34, f34 FROM imp_practices
+    UNION ALL SELECT Date, 86, f86 FROM imp_practices
+    UNION ALL SELECT Date, 90, f90 FROM imp_practices
+    UNION ALL SELECT Date, 97, f97 FROM imp_practices
+)
+INSERT INTO absences (event_id, player_id, absence_type)
+SELECT 
+    e.event_id,
+    r.player_id,
+    CASE 
+        WHEN pr.code = 'u' THEN 'unexcused'
+        WHEN pr.code = 'ij' THEN 'injured'
+        ELSE 'excused'
+    END
+FROM prac_raw pr
+JOIN roster r ON r.jersey_number = pr.jersey
+JOIN events e ON e.event_date = pr.Date AND e.event_type = 'practice'
+WHERE pr.code NOT IN ('B', 'W');
+
+
+-- 2. Dryland / Classroom
+-- Columns: Date, Type, d6, f7, g8, f16, f18, d19, f22, f24, f30, g31, f34, d47, d81, f86, d88, d89, f90, f97
+CREATE TEMP TABLE imp_dryland (Date, Type, d6, f7, g8, f16, f18, d19, f22, f24, f30, g31, f34, d47, d81, f86, d88, d89, f90, f97);
+.import "$clean_dryland" imp_dryland
+DELETE FROM imp_dryland WHERE Date = 'Date' OR Date IS NULL OR Date = '';
+
+-- Remove Cancelled Dryland/Classroom (All players are '-' or empty)
+DELETE FROM imp_dryland WHERE
+  (d6  IS NULL OR d6  IN ('','-')) AND (f7  IS NULL OR f7  IN ('','-')) AND
+  (g8  IS NULL OR g8  IN ('','-')) AND (f16 IS NULL OR f16 IN ('','-')) AND
+  (f18 IS NULL OR f18 IN ('','-')) AND (d19 IS NULL OR d19 IN ('','-')) AND
+  (f22 IS NULL OR f22 IN ('','-')) AND (f24 IS NULL OR f24 IN ('','-')) AND
+  (f30 IS NULL OR f30 IN ('','-')) AND (g31 IS NULL OR g31 IN ('','-')) AND
+  (f34 IS NULL OR f34 IN ('','-')) AND (d47 IS NULL OR d47 IN ('','-')) AND
+  (d81 IS NULL OR d81 IN ('','-')) AND (f86 IS NULL OR f86 IN ('','-')) AND
+  (d88 IS NULL OR d88 IN ('','-')) AND (d89 IS NULL OR d89 IN ('','-')) AND
+  (f90 IS NULL OR f90 IN ('','-')) AND (f97 IS NULL OR f97 IN ('','-'));
+
+-- Insert Events
+INSERT INTO events (event_type, event_date)
+SELECT 
+    CASE WHEN Type = 'C' THEN 'classroom' ELSE 'dryland' END,
+    Date
+FROM imp_dryland;
+
+-- Unpivot & Insert
+WITH dry_raw AS (
+    SELECT Date, Type, 6 as jersey, d6 as code FROM imp_dryland
+    UNION ALL SELECT Date, Type, 7, f7 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 8, g8 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 16, f16 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 18, f18 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 19, d19 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 22, f22 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 24, f24 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 30, f30 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 31, g31 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 34, f34 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 47, d47 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 81, d81 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 86, f86 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 88, d88 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 89, d89 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 90, f90 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 97, f97 FROM imp_dryland
+)
+INSERT INTO attendance (event_id, player_id, color)
+SELECT 
+    e.event_id,
+    r.player_id,
+    NULL
+FROM dry_raw dr
+JOIN roster r ON r.jersey_number = dr.jersey
+JOIN events e ON e.event_date = dr.Date AND e.event_type = (CASE WHEN dr.Type = 'C' THEN 'classroom' ELSE 'dryland' END)
+WHERE dr.code = '+';
+
+WITH dry_raw AS (
+    SELECT Date, Type, 6 as jersey, d6 as code FROM imp_dryland
+    UNION ALL SELECT Date, Type, 7, f7 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 8, g8 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 16, f16 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 18, f18 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 19, d19 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 22, f22 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 24, f24 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 30, f30 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 31, g31 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 34, f34 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 47, d47 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 81, d81 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 86, f86 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 88, d88 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 89, d89 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 90, f90 FROM imp_dryland
+    UNION ALL SELECT Date, Type, 97, f97 FROM imp_dryland
+)
+INSERT INTO absences (event_id, player_id, absence_type)
+SELECT 
+    e.event_id,
+    r.player_id,
+    CASE 
+        WHEN dr.code = 'u' THEN 'unexcused'
+        WHEN dr.code = 'ij' THEN 'injured'
+        ELSE 'excused'
+    END
+FROM dry_raw dr
+JOIN roster r ON r.jersey_number = dr.jersey
+JOIN events e ON e.event_date = dr.Date AND e.event_type = (CASE WHEN dr.Type = 'C' THEN 'classroom' ELSE 'dryland' END)
+WHERE dr.code != '+' AND dr.code IS NOT NULL AND dr.code != '';
+
+
 PRAGMA foreign_keys = ON;
 
 SELECT 'Ingestion Complete' as Status;
@@ -448,6 +657,9 @@ SELECT COUNT(*) || ' Games Loaded' FROM games;
 SELECT COUNT(*) || ' Goals For Loaded' FROM goals_for;
 SELECT COUNT(*) || ' Penalties Loaded' FROM penalties;
 SELECT COUNT(*) || ' Passing Stats Loaded' FROM team_passing_stats;
+SELECT COUNT(*) || ' Practice Events Loaded' FROM events;
+SELECT COUNT(*) || ' Attendance Records' FROM attendance;
+SELECT COUNT(*) || ' Absence Records' FROM absences;
 
 EOF
 
