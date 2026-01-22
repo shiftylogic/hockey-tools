@@ -32,12 +32,25 @@ clean_games="./.tmp_ingest/games.csv"
 clean_goals_for="./.tmp_ingest/goals_for.csv"
 clean_goals_against="./.tmp_ingest/goals_against.csv"
 clean_penalties="./.tmp_ingest/penalties.csv"
+clean_passing_std="./.tmp_ingest/passing_std.csv"
+clean_passing_tourn="./.tmp_ingest/passing_tourn.csv"
 
 tr -d '\r' < "$DATA_DIR/roster.csv" > "$clean_roster"
 tr -d '\r' < "$DATA_DIR/Games-Games.csv" > "$clean_games"
 tr -d '\r' < "$DATA_DIR/Goals For-For.csv" > "$clean_goals_for"
 tr -d '\r' < "$DATA_DIR/Goals Against-Against.csv" > "$clean_goals_against"
 tr -d '\r' < "$DATA_DIR/Penalties-Table 1.csv" > "$clean_penalties"
+
+# Concatenate standard passing files with forced newlines to prevent merging last/first lines
+{
+    cat "$DATA_DIR/Passing-Exhibition.csv"
+    echo ""
+    cat "$DATA_DIR/Passing-League.csv"
+    echo ""
+    cat "$DATA_DIR/Passing-Tiering.csv"
+} | tr -d '\r' > "$clean_passing_std"
+
+tr -d '\r' < "$DATA_DIR/Passing-Tournaments.csv" > "$clean_passing_tourn"
 
 trap "rm -rf ./.tmp_ingest" EXIT
 
@@ -57,6 +70,7 @@ DROP TABLE IF EXISTS giveaways;
 DROP TABLE IF EXISTS takeaways;
 DROP TABLE IF EXISTS blocks;
 DROP TABLE IF EXISTS passes;
+DROP TABLE IF EXISTS team_passing_stats;
 DROP TABLE IF EXISTS shots;
 DROP TABLE IF EXISTS penalties;
 DROP TABLE IF EXISTS goals_against;
@@ -164,6 +178,14 @@ CREATE TABLE penalties (
     penalty_type_id INTEGER NOT NULL REFERENCES penalty_types(penalty_type_id),
     served_by_id INTEGER REFERENCES roster(player_id),
     notes TEXT(255)
+);
+
+CREATE TABLE team_passing_stats (
+    game_id INTEGER NOT NULL REFERENCES games(game_id),
+    period INTEGER NOT NULL CHECK (period BETWEEN 1 AND 4),
+    attempts INTEGER NOT NULL,
+    completed INTEGER NOT NULL,
+    PRIMARY KEY (game_id, period)
 );
 
 -- Placeholder tables
@@ -390,6 +412,34 @@ JOIN penalty_types pt ON
         END
     );
 
+-- F. Team Passing Stats
+-- ------------------------
+-- Standard (Exhibition, League, Tiering)
+CREATE TEMP TABLE imp_pass_std (Game, Att, Comp, Pct, X, P1A, P1C, P1P, P2A, P2C, P2P, P3A, P3C, P3P);
+.import "$clean_passing_std" imp_pass_std
+DELETE FROM imp_pass_std WHERE Game = 'Game' OR Game IS NULL OR Game = '';
+
+INSERT INTO team_passing_stats (game_id, period, attempts, completed)
+SELECT Game, 1, P1A, P1C FROM imp_pass_std WHERE P1A IS NOT NULL AND P1A != ''
+UNION ALL
+SELECT Game, 2, P2A, P2C FROM imp_pass_std WHERE P2A IS NOT NULL AND P2A != ''
+UNION ALL
+SELECT Game, 3, P3A, P3C FROM imp_pass_std WHERE P3A IS NOT NULL AND P3A != '';
+
+-- Tournament (Has OT columns)
+CREATE TEMP TABLE imp_pass_tourn (Game, Att, Comp, Pct, X, P1A, P1C, P1P, P2A, P2C, P2P, P3A, P3C, P3P, OTA, OTC, OTP);
+.import "$clean_passing_tourn" imp_pass_tourn
+DELETE FROM imp_pass_tourn WHERE Game = 'Game';
+
+INSERT INTO team_passing_stats (game_id, period, attempts, completed)
+SELECT Game, 1, P1A, P1C FROM imp_pass_tourn WHERE P1A IS NOT NULL AND P1A != ''
+UNION ALL
+SELECT Game, 2, P2A, P2C FROM imp_pass_tourn WHERE P2A IS NOT NULL AND P2A != ''
+UNION ALL
+SELECT Game, 3, P3A, P3C FROM imp_pass_tourn WHERE P3A IS NOT NULL AND P3A != ''
+UNION ALL
+SELECT Game, 4, OTA, OTC FROM imp_pass_tourn WHERE OTA IS NOT NULL AND OTA != '-' AND OTA != '';
+
 PRAGMA foreign_keys = ON;
 
 SELECT 'Ingestion Complete' as Status;
@@ -397,6 +447,7 @@ SELECT COUNT(*) || ' Players Loaded' FROM roster;
 SELECT COUNT(*) || ' Games Loaded' FROM games;
 SELECT COUNT(*) || ' Goals For Loaded' FROM goals_for;
 SELECT COUNT(*) || ' Penalties Loaded' FROM penalties;
+SELECT COUNT(*) || ' Passing Stats Loaded' FROM team_passing_stats;
 
 EOF
 
