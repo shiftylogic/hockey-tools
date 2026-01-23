@@ -5,3 +5,6 @@ prompt.md
 /.data
 /stats.db
 
+# 'site' is a sub-repo for the GitHub Page
+/site
+
