@@ -416,8 +416,8 @@ SELECT
     g.Game, 4, 0,
     r1.player_id, r2.player_id, r3.player_id, r4.player_id, r5.player_id, r6.player_id,
     CASE 
-        WHEN UPPER(g.Tag) IN ('PK', 'SH') THEN 'power_play'
-        WHEN UPPER(g.Tag) = 'PP' THEN 'shorthanded'
+        WHEN UPPER(g.Tag) IN ('PK', 'SH') THEN 'shorthanded'
+        WHEN UPPER(g.Tag) = 'PP' THEN 'power_play'
         ELSE 'even_strength'
     END
 FROM imp_ga g

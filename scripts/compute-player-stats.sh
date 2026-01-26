@@ -54,12 +54,12 @@ plus_minus_plus AS (
 plus_minus_minus AS (
     SELECT player_id, COUNT(*) as minus
     FROM (
-        SELECT on_ice1_id as player_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice1_id IS NOT NULL
-        UNION ALL SELECT on_ice2_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice2_id IS NOT NULL
-        UNION ALL SELECT on_ice3_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice3_id IS NOT NULL
-        UNION ALL SELECT on_ice4_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice4_id IS NOT NULL
-        UNION ALL SELECT on_ice5_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice5_id IS NOT NULL
-        UNION ALL SELECT on_ice6_id FROM goals_against WHERE goal_type != 'power_play' AND on_ice6_id IS NOT NULL
+        SELECT on_ice1_id as player_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice1_id IS NOT NULL
+        UNION ALL SELECT on_ice2_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice2_id IS NOT NULL
+        UNION ALL SELECT on_ice3_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice3_id IS NOT NULL
+        UNION ALL SELECT on_ice4_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice4_id IS NOT NULL
+        UNION ALL SELECT on_ice5_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice5_id IS NOT NULL
+        UNION ALL SELECT on_ice6_id FROM goals_against WHERE goal_type != 'shorthanded' AND on_ice6_id IS NOT NULL
     )
     GROUP BY player_id
 )

@@ -82,6 +82,15 @@ CREATE TABLE IF NOT EXISTS penalty_types (
     penalty_length INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS game_roster (
+    game_id INTEGER NOT NULL REFERENCES games(game_id),
+    player_id INTEGER NOT NULL REFERENCES roster(player_id),
+    position TEXT NOT NULL CHECK (position IN ('forward', 'center', 'defense', 'goalie', 'scratch')),
+    code TEXT NOT NULL,
+    note TEXT,
+    PRIMARY KEY (game_id, player_id)
+);
+
 -- ============================================================================
 -- STAT TABLES
 -- ============================================================================
@@ -114,6 +123,14 @@ CREATE TABLE IF NOT EXISTS goals_against (
     on_ice5_id INTEGER REFERENCES roster(player_id),
     on_ice6_id INTEGER REFERENCES roster(player_id),
     goal_type TEXT NOT NULL CHECK (goal_type IN ('power_play', 'shorthanded', 'even_strength', 'shootout', 'penalty_shot'))
+);
+
+CREATE TABLE IF NOT EXISTS team_passing_stats (
+    game_id INTEGER NOT NULL REFERENCES games(game_id),
+    period INTEGER NOT NULL CHECK (period BETWEEN 1 AND 4),
+    attempts INTEGER NOT NULL,
+    completed INTEGER NOT NULL,
+    PRIMARY KEY (game_id, period)
 );
 
 CREATE TABLE IF NOT EXISTS penalties (
@@ -279,27 +296,27 @@ INSERT OR IGNORE INTO penalty_types (penalty_name, penalty_category, penalty_len
     ('interference', 'major', 5),
     ('holding', 'minor', 2),
     ('holding', 'major', 5),
-    ('high_stick', 'minor', 2),
-    ('high_stick', 'major', 5),
-    ('cross_check', 'minor', 2),
-    ('cross_check', 'major', 5),
+    ('high-sticking', 'minor', 2),
+    ('high-sticking', 'major', 5),
+    ('cross-checking', 'minor', 2),
+    ('cross-checking', 'major', 5),
     ('charging', 'minor', 2),
     ('charging', 'major', 5),
     ('roughing', 'minor', 2),
     ('roughing', 'major', 5),
-    ('delay_of_game', 'minor', 2),
-    ('too_many_men', 'minor', 2),
+    ('delay-of-game', 'minor', 2),
+    ('too-many-men', 'minor', 2),
     ('bench_minor', 'minor', 2),
-    ('checking_from_behind', 'major', 5),
-    ('checking_to_head', 'major', 5),
+    ('checking-from-behind', 'major', 5),
+    ('head-contact', 'major', 5),
     ('fighting', 'major', 5),
-    ('butt_ending', 'major', 5),
-    ('hair_pulling', 'major', 5),
+    ('butt-ending', 'major', 5),
+    ('hair-pulling', 'major', 5),
     ('kicking', 'major', 5),
     ('kneeing', 'major', 5),
     ('spearing', 'major', 5),
     ('misconduct', 'misconduct', 10),
-    ('game_misconduct', 'game_misconduct', 10),
+    ('game-misconduct', 'game_misconduct', 10),
     ('match', 'match', 5);
 
 -- Verify setup
