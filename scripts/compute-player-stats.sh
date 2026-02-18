@@ -9,6 +9,7 @@ FILTER_TAG=""
 FILTER_START_DATE=""
 FILTER_END_DATE=""
 FILTER_GAME_ID=""
+FILTER_GAME_IDS=""
 FILTER_OPPONENT=""
 
 # Parse arguments
@@ -28,6 +29,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --game)
             FILTER_GAME_ID="$2"
+            shift 2
+            ;;
+        --games)
+            FILTER_GAME_IDS="$2"
             shift 2
             ;;
         --opponent)
@@ -72,6 +77,29 @@ fi
 
 if [ -n "$FILTER_GAME_ID" ]; then
     WHERE_CLAUSE="$WHERE_CLAUSE AND g.game_id = $FILTER_GAME_ID"
+fi
+
+if [ -n "$FILTER_GAME_IDS" ]; then
+    GAME_ID_CONDITION=""
+    IFS=',' read -ra PARTS <<< "$FILTER_GAME_IDS"
+    for part in "${PARTS[@]}"; do
+        if [[ "$part" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            start="${BASH_REMATCH[1]}"
+            end="${BASH_REMATCH[2]}"
+            for ((i=start; i<=end; i++)); do
+                if [ -n "$GAME_ID_CONDITION" ]; then
+                    GAME_ID_CONDITION="$GAME_ID_CONDITION OR "
+                fi
+                GAME_ID_CONDITION="${GAME_ID_CONDITION}g.game_id = $i"
+            done
+        else
+            if [ -n "$GAME_ID_CONDITION" ]; then
+                GAME_ID_CONDITION="$GAME_ID_CONDITION OR "
+            fi
+            GAME_ID_CONDITION="${GAME_ID_CONDITION}g.game_id = $part"
+        fi
+    done
+    WHERE_CLAUSE="$WHERE_CLAUSE AND ($GAME_ID_CONDITION)"
 fi
 
 if [ -n "$FILTER_OPPONENT" ]; then

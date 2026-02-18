@@ -3,6 +3,7 @@ prompt.md
 
 # Team Database
 /.data
+/.db-backup
 /stats.db
 
 # 'site' is a sub-repo for the GitHub Page
